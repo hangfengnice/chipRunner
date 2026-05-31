@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple
@@ -59,6 +61,8 @@ PARAM_LABELS = {
     "每股每日可获取差价": "spread",
     "每手成本": "lot_cost",
 }
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
 
 
 @dataclass
@@ -166,36 +170,60 @@ def find_target_date_by_assets(parsed: ParsedTable, total_assets: float) -> int 
     return None
 
 
+def calc_rows_via_ts_core(parsed: ParsedTable, pre_days: int) -> List[dict]:
+    payload = {
+        "params": {
+            "initialShares": parsed.params.initial_shares,
+            "initialCash": parsed.params.initial_cash,
+            "price": parsed.params.price,
+            "spread": parsed.params.spread,
+            "lotCost": parsed.params.lot_cost,
+            "hiddenTradingDays": pre_days,
+        },
+        "dates": [cols[0] for _, cols in parsed.rows],
+    }
+
+    command = ["npm", "run", "--silent", "tracking:core", "--", "compute"]
+    result = subprocess.run(
+        command,
+        cwd=ROOT_DIR,
+        input=json.dumps(payload, ensure_ascii=False),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip()
+        raise RuntimeError(f"TypeScript 计算失败: {details}")
+
+    try:
+        rows = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("TypeScript 计算输出不是有效 JSON") from exc
+
+    if not isinstance(rows, list):
+        raise RuntimeError("TypeScript 计算输出格式错误")
+
+    if len(rows) != len(parsed.rows):
+        raise RuntimeError("TypeScript 计算行数与原表不一致")
+
+    return rows
+
+
 def recalc_rows(parsed: ParsedTable, pre_days: int | None = None) -> None:
     params = parsed.params
     first_date = parsed.rows[0][1][0]
     if pre_days is None:
         pre_days = 0 if first_date == params.start_date else 1
 
-    shares = int(params.initial_shares)
-    cash = float(params.initial_cash)
+    ts_rows = calc_rows_via_ts_core(parsed, max(pre_days, 0))
 
-    for _ in range(max(pre_days, 0)):
-        t_profit = shares * params.spread
-        cash += t_profit
-        lots = int(cash // params.lot_cost)
-        if lots > 0:
-            shares += lots * 100
-            cash -= lots * params.lot_cost
-
-    for line_idx, cols in parsed.rows:
-        t_profit = shares * params.spread
-        cash += t_profit
-        lots = int(cash // params.lot_cost)
-        if lots > 0:
-            shares += lots * 100
-            cash -= lots * params.lot_cost
-        assets = shares * params.price + cash
-
-        cols[1] = str(shares)
-        cols[2] = fmt_float(t_profit)
-        cols[3] = fmt_float(cash)
-        cols[4] = fmt_float(assets)
+    for (line_idx, cols), ts_row in zip(parsed.rows, ts_rows):
+        cols[1] = str(int(ts_row["targetShares"]))
+        cols[2] = fmt_float(float(ts_row["tProfit"]))
+        cols[3] = fmt_float(float(ts_row["targetCash"]))
+        cols[4] = fmt_float(float(ts_row["targetAssets"]))
 
         parsed.lines[line_idx] = "| " + " | ".join(cols) + " |"
 

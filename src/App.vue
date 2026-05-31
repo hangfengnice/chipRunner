@@ -21,7 +21,14 @@ import {
   type ActualPositionEntry,
   type TrackingParams,
 } from './lib/tracking'
-import { CALENDAR_2026, LEGACY_TRACKING_2026_2028 } from './data/sources'
+import {
+  ALL_TRADING_DATE_FROM,
+  ALL_TRADING_DATE_TO,
+  ALL_TRADING_DATES,
+  CALENDAR_BY_YEAR,
+  CALENDAR_YEARS,
+  LEGACY_TRACKING_2026_2028,
+} from './data/sources'
 
 interface ActualEntryDraft {
   date: string
@@ -30,16 +37,53 @@ interface ActualEntryDraft {
   closePrice: number | null
 }
 
+interface DisplayRangeDraft {
+  dateFrom: string
+  dateTo: string
+}
+
+interface YearScopeOption {
+  value: string
+  label: string
+}
+
 const roundMoney = (value: number) => Number(value.toFixed(2))
 const normalizeShares = (value: number) => Math.trunc(value)
+const toIsoDate = (value: string) => value.replaceAll('.', '-')
+const toDateTime = (value: string) =>
+  new Date(`${toIsoDate(value)}T00:00:00`).getTime()
+const clampDateWithin = (value: string, min: string, max: string) => {
+  if (value < min) {
+    return min
+  }
+
+  if (value > max) {
+    return max
+  }
+
+  return value
+}
 
 const form = reactive<TrackingParams>({ ...DEFAULT_PARAMS })
+const availableDateFrom = ALL_TRADING_DATE_FROM
+const availableDateTo = ALL_TRADING_DATE_TO
+const totalAvailableTradingDays = ALL_TRADING_DATES.length
+const firstCalendarYear = CALENDAR_YEARS[0]?.year
+const lastCalendarYear = CALENDAR_YEARS[CALENDAR_YEARS.length - 1]?.year
+const defaultYearScope = String(firstCalendarYear ?? 'all')
+
+form.endDate = clampDateWithin(form.endDate, availableDateFrom, availableDateTo)
+
 const showRecentOnly = ref(false)
-const calendarMeta = CALENDAR_2026
 const legacyTable = LEGACY_TRACKING_2026_2028
+const selectedYearScope = ref(defaultYearScope)
+const displayRange = reactive<DisplayRangeDraft>({
+  dateFrom: availableDateFrom,
+  dateTo: form.endDate,
+})
 const actualEntries = ref<Record<string, ActualPositionEntry>>({})
 const actualEntryForm = reactive<ActualEntryDraft>({
-  date: calendarMeta.dateFrom,
+  date: availableDateFrom,
   actualShares: null,
   actualCash: null,
   closePrice: DEFAULT_PARAMS.price,
@@ -48,39 +92,128 @@ const actualEntriesUpdatedAt = ref<string | null>(null)
 const isLoadingActualEntries = ref(false)
 const isSavingActualEntry = ref(false)
 
-const toIsoDate = (value: string) => value.replaceAll('.', '-')
+const yearScopeOptions = computed<YearScopeOption[]>(() => {
+  const allLabel =
+    firstCalendarYear && lastCalendarYear
+      ? `全部年份（${firstCalendarYear}-${lastCalendarYear}）`
+      : '全部年份'
+
+  return [
+    {
+      value: 'all',
+      label: allLabel,
+    },
+    ...CALENDAR_YEARS.map((calendar) => ({
+      value: String(calendar.year),
+      label: `${calendar.year}（${calendar.totalTradingDays}日）`,
+    })),
+  ]
+})
+
+const titleYearRange =
+  firstCalendarYear && lastCalendarYear
+    ? `${firstCalendarYear}-${lastCalendarYear}`
+    : 'Multi-Year'
+
+const calculatedDateBounds = computed(() => {
+  if (!rows.value.length) {
+    return {
+      min: availableDateFrom,
+      max: availableDateFrom,
+    }
+  }
+
+  return {
+    min: rows.value[0].date,
+    max: rows.value[rows.value.length - 1].date,
+  }
+})
+
+const syncDisplayRangeWithinCalculated = () => {
+  const { min, max } = calculatedDateBounds.value
+
+  displayRange.dateFrom = clampDateWithin(displayRange.dateFrom, min, max)
+  displayRange.dateTo = clampDateWithin(
+    displayRange.dateTo,
+    displayRange.dateFrom,
+    max,
+  )
+}
+
+const applyYearScope = (scope: string) => {
+  if (scope === 'all') {
+    displayRange.dateFrom = calculatedDateBounds.value.min
+    displayRange.dateTo = form.endDate
+    syncDisplayRangeWithinCalculated()
+    return
+  }
+
+  const calendar = CALENDAR_BY_YEAR.get(Number(scope))
+  if (!calendar) {
+    return
+  }
+
+  if (calendar.dateTo > form.endDate) {
+    form.endDate = calendar.dateTo
+  }
+
+  const { min, max } = calculatedDateBounds.value
+  displayRange.dateFrom = clampDateWithin(calendar.dateFrom, min, max)
+  displayRange.dateTo = clampDateWithin(
+    calendar.dateTo,
+    displayRange.dateFrom,
+    max,
+  )
+}
 
 const restorePreset = () => {
   Object.assign(form, DEFAULT_PARAMS)
+  form.endDate = clampDateWithin(
+    form.endDate,
+    availableDateFrom,
+    availableDateTo,
+  )
+  selectedYearScope.value = defaultYearScope
 }
 
 const syncLotCost = () => {
   form.lotCost = syncLotCostFromPrice(form.price)
 }
 
-const rows = computed(() => buildRows({ ...form }))
+const rows = computed(() => buildRows({ ...form }, ALL_TRADING_DATES))
 const comparisonRows = computed(() =>
   buildComparisonRows(rows.value, actualEntries.value),
 )
 
+const rangedComparisonRows = computed(() =>
+  comparisonRows.value.filter(
+    (row) =>
+      row.date >= displayRange.dateFrom && row.date <= displayRange.dateTo,
+  ),
+)
+
 const visibleRows = computed(() => {
   if (!showRecentOnly.value) {
-    return comparisonRows.value
+    return rangedComparisonRows.value
   }
 
-  return comparisonRows.value.slice(-10)
+  return rangedComparisonRows.value.slice(-10)
 })
 
 const summary = computed(() => {
-  const lastRow = rows.value[rows.value.length - 1]
-  const buyDays = rows.value.filter((row) => row.lotsBought > 0).length
+  const sourceRows = rangedComparisonRows.value
+  const lastRow = sourceRows[sourceRows.length - 1]
+  const firstRow = sourceRows[0]
+  const buyDays = sourceRows.filter((row) => row.lotsBought > 0).length
   const firstBuyDate =
-    rows.value.find((row) => row.lotsBought > 0)?.date ?? '未触发买入'
+    sourceRows.find((row) => row.lotsBought > 0)?.date ?? '未触发买入'
 
   return {
-    tradingDays: rows.value.length,
+    tradingDays: sourceRows.length,
     buyDays,
     firstBuyDate,
+    rangeFrom: firstRow?.date ?? '--',
+    rangeTo: lastRow?.date ?? '--',
     lastDate: lastRow?.date ?? '无可展示数据',
     lastShares: lastRow?.targetShares ?? 0,
     lastCash: lastRow?.targetCash ?? 0,
@@ -112,11 +245,61 @@ const hydrateActualEntryForm = (date: string) => {
 }
 
 watch(
+  selectedYearScope,
+  (scope) => {
+    applyYearScope(scope)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => form.endDate,
+  (nextEndDate) => {
+    const clampedEndDate = clampDateWithin(
+      nextEndDate,
+      availableDateFrom,
+      availableDateTo,
+    )
+
+    if (clampedEndDate !== nextEndDate) {
+      form.endDate = clampedEndDate
+      return
+    }
+
+    if (selectedYearScope.value === 'all') {
+      displayRange.dateTo = clampedEndDate
+    } else if (displayRange.dateTo > clampedEndDate) {
+      displayRange.dateTo = clampedEndDate
+    }
+
+    if (displayRange.dateFrom > displayRange.dateTo) {
+      displayRange.dateFrom = displayRange.dateTo
+    }
+  },
+)
+
+watch(
+  () => displayRange.dateFrom,
+  () => {
+    syncDisplayRangeWithinCalculated()
+  },
+)
+
+watch(
+  () => displayRange.dateTo,
+  () => {
+    syncDisplayRangeWithinCalculated()
+  },
+)
+
+watch(
   rows,
   (nextRows) => {
     if (!nextRows.length) {
       return
     }
+
+    syncDisplayRangeWithinCalculated()
 
     if (!nextRows.some((row) => row.date === actualEntryForm.date)) {
       actualEntryForm.date = nextRows[nextRows.length - 1].date
@@ -203,14 +386,34 @@ const deltaTagType = (value: number | null) => {
   return 'info'
 }
 
-const disableOutsideRange = (date: Date) => {
+const disableOutsideAvailableRange = (date: Date) => {
   const time = date.getTime()
-  const minTime = new Date(
-    `${toIsoDate(calendarMeta.dateFrom)}T00:00:00`,
-  ).getTime()
-  const maxTime = new Date(
-    `${toIsoDate(calendarMeta.dateTo)}T00:00:00`,
-  ).getTime()
+  const minTime = toDateTime(availableDateFrom)
+  const maxTime = toDateTime(availableDateTo)
+
+  return time < minTime || time > maxTime
+}
+
+const disableOutsideCalculatedRange = (date: Date) => {
+  const time = date.getTime()
+  const minTime = toDateTime(calculatedDateBounds.value.min)
+  const maxTime = toDateTime(calculatedDateBounds.value.max)
+
+  return time < minTime || time > maxTime
+}
+
+const disableDisplayDateFrom = (date: Date) => {
+  const time = date.getTime()
+  const minTime = toDateTime(calculatedDateBounds.value.min)
+  const maxTime = toDateTime(displayRange.dateTo)
+
+  return time < minTime || time > maxTime
+}
+
+const disableDisplayDateTo = (date: Date) => {
+  const time = date.getTime()
+  const minTime = toDateTime(displayRange.dateFrom)
+  const maxTime = toDateTime(calculatedDateBounds.value.max)
 
   return time < minTime || time > maxTime
 }
@@ -224,6 +427,11 @@ const rowClassName = ({ row }: { row: { lotsBought: number } }) => {
 }
 
 const saveActualEntry = () => {
+  if (!rows.value.some((row) => row.date === actualEntryForm.date)) {
+    ElMessage.warning('当前录入日期不在计算区间内，请先调整截止日期')
+    return
+  }
+
   if (
     actualEntryForm.actualShares === null ||
     actualEntryForm.actualCash === null ||
@@ -284,17 +492,17 @@ const clearActualEntry = () => {
     <section class="hero-panel">
       <div class="hero-copy">
         <span class="eyebrow">Chip Runner Prototype</span>
-        <h1>2026 Tracking Console</h1>
+        <h1>{{ titleYearRange }} Tracking Console</h1>
         <p>
           用 Vue3 + Element Plus
-          把跟踪模型做成一个最小可用界面，直接调整参数并重算目标持股、现金和资产。
+          把跟踪模型做成一个最小可用界面，支持多年度连续重算、年份切换和区间筛选。
         </p>
       </div>
 
       <div class="hero-actions">
         <el-button type="primary" @click="restorePreset">
           <el-icon><RefreshRight /></el-icon>
-          应用当前样例
+          应用底稿默认参数
         </el-button>
         <el-button @click="syncLotCost">每手成本跟随股价</el-button>
       </div>
@@ -306,14 +514,24 @@ const clearActualEntry = () => {
           <div class="panel-title">
             <span>模型参数</span>
             <small>
-              当前原型接入 {{ calendarMeta.dateFrom }} -
-              {{ calendarMeta.dateTo }} 的
-              {{ calendarMeta.totalTradingDays }} 个交易日
+              当前原型接入 {{ availableDateFrom }} - {{ availableDateTo }} 的
+              {{ totalAvailableTradingDays }} 个交易日
             </small>
           </div>
         </template>
 
         <el-form label-position="top" class="form-grid">
+          <el-form-item label="年份视图">
+            <el-select v-model="selectedYearScope" placeholder="选择年份视图">
+              <el-option
+                v-for="option in yearScopeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+
           <el-form-item label="初始股数">
             <el-input-number
               v-model="form.initialShares"
@@ -378,8 +596,30 @@ const clearActualEntry = () => {
               type="date"
               format="YYYY.MM.DD"
               value-format="YYYY.MM.DD"
-              :disabled-date="disableOutsideRange"
+              :disabled-date="disableOutsideAvailableRange"
               placeholder="选择截止日期"
+            />
+          </el-form-item>
+
+          <el-form-item label="展示起始日">
+            <el-date-picker
+              v-model="displayRange.dateFrom"
+              type="date"
+              format="YYYY.MM.DD"
+              value-format="YYYY.MM.DD"
+              :disabled-date="disableDisplayDateFrom"
+              placeholder="选择展示起始日"
+            />
+          </el-form-item>
+
+          <el-form-item label="展示截止日">
+            <el-date-picker
+              v-model="displayRange.dateTo"
+              type="date"
+              format="YYYY.MM.DD"
+              value-format="YYYY.MM.DD"
+              :disabled-date="disableDisplayDateTo"
+              placeholder="选择展示截止日"
             />
           </el-form-item>
         </el-form>
@@ -388,7 +628,7 @@ const clearActualEntry = () => {
           type="warning"
           :closable="false"
           show-icon
-          title="前置交易日默认 1，用来对齐当前 Python 脚本在 2026.06.01 前先补算一个隐藏交易日的口径。"
+          title="最新基础数据从 2026.06.01 起算，默认前置交易日为 0；年份视图和展示区间只影响展示，不会重置累计过程。"
         />
       </el-card>
 
@@ -399,7 +639,7 @@ const clearActualEntry = () => {
             <span>展示区间</span>
           </div>
           <strong>{{ summary.tradingDays }}</strong>
-          <p>交易日，首个买入日 {{ summary.firstBuyDate }}</p>
+          <p>{{ summary.rangeFrom }} - {{ summary.rangeTo }}</p>
         </el-card>
 
         <el-card shadow="never" class="stat-card accent-card">
@@ -419,7 +659,10 @@ const clearActualEntry = () => {
             <span>截止日持股</span>
           </div>
           <strong>{{ summary.lastShares }}</strong>
-          <p>{{ summary.buyDays }} 个买入日，整手买入规则保持不变</p>
+          <p>
+            {{ summary.buyDays }} 个买入日，首个买入日
+            {{ summary.firstBuyDate }}
+          </p>
         </el-card>
       </div>
     </section>
@@ -443,7 +686,7 @@ const clearActualEntry = () => {
               type="date"
               format="YYYY.MM.DD"
               value-format="YYYY.MM.DD"
-              :disabled-date="disableOutsideRange"
+              :disabled-date="disableOutsideCalculatedRange"
               placeholder="选择录入日期"
             />
           </el-form-item>
@@ -566,15 +809,15 @@ const clearActualEntry = () => {
           <span class="note-title">计算规则</span>
           <p>每日做T利润 = 开盘持股 x 每日差价</p>
           <p>盘后现金 >= 每手成本时，按整手尽可能买入</p>
+          <p>跨年时继续沿上一交易日状态累计，不按年份重置股数或现金</p>
         </div>
         <div>
           <span class="note-title">样例校验</span>
           <p>
-            默认参数对应当前讨论中的 4400 股 / 128.83 现金 / 26 元 / 0.4 差价。
+            默认参数对应最新基础数据：4900 股 / 2313.83 现金 / 25.35 元 / 0.4
+            差价。
           </p>
-          <p>
-            截止 2026.12.31 时应落在 41700 股、2248.83 现金、1086448.83 资产。
-          </p>
+          <p>当前页面已支持 2026-2030 多年度交易日，展示区间可独立筛选。</p>
           <p>
             已迁入的历史总表 JSON 覆盖 {{ legacyTable.dateFrom }} -
             {{ legacyTable.dateTo }}，共 {{ legacyTable.rowCount }} 行。
@@ -588,7 +831,10 @@ const clearActualEntry = () => {
         <div class="table-toolbar">
           <div>
             <span class="panel-heading">目标跟踪表</span>
-            <p>买入日会高亮，方便先验证计算口径，再继续接实盘录入。</p>
+            <p>
+              买入日会高亮；当前展示 {{ displayRange.dateFrom }} -
+              {{ displayRange.dateTo }}，计算累计截至 {{ form.endDate }}。
+            </p>
           </div>
           <el-switch
             v-model="showRecentOnly"
@@ -638,7 +884,13 @@ const clearActualEntry = () => {
             {{ formatMoney(scope.row.targetCash) }}
           </template>
         </el-table-column>
-        <el-table-column label="目标资产" min-width="150" align="right">
+        <el-table-column
+          label="目标资产"
+          min-width="150"
+          align="right"
+          class-name="target-assets-column"
+          label-class-name="target-assets-column"
+        >
           <template #default="scope">
             {{ formatMoney(scope.row.targetAssets) }}
           </template>

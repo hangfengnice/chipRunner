@@ -57,10 +57,10 @@
 - Markdown 迁移为 JSON：`npm run migrate:data`
 - 跟踪工具脚本：[scripts/tracking_tool.py](./scripts/tracking_tool.py)
   - 一键重算总表目标字段：`python3 scripts/tracking_tool.py recalc --file docs/2026-2028-tracking-total-table.md`
-  - 调整初始参数并重算：`python3 scripts/tracking_tool.py recalc --initial-shares 1200 --initial-cash 0 --price 30.71 --spread 0.3 --lot-cost 3071`
+  - 调整初始参数并重算：`python3 scripts/tracking_tool.py recalc --start-date 2026.06.01 --initial-shares 4900 --initial-cash 2313.83 --price 25.35 --spread 0.4 --lot-cost 2535 --pre-days 0`
   - 按日期区间提取数据：`python3 scripts/tracking_tool.py range --date-from 2027.03.01 --date-to 2027.06.30`
   - 区间提取精简视图：`python3 scripts/tracking_tool.py range --date-from 2026.06.01 --date-to 2026.12.31 --view core`
-  - 按当前总资产定位目标日期与进度差：`python3 scripts/tracking_tool.py progress --date 2026.06.10 --total-assets 35101`
+  - 按当前总资产定位目标日期与进度差：`python3 scripts/tracking_tool.py progress --date 2026.06.10 --total-assets 143208.83`
 - 实盘写回文件：`data/tracking/actual-entries.json`
 
 ## 重新打开项目时的优先顺序

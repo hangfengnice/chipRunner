@@ -4,6 +4,8 @@
 
 当前项目状态见 [docs/project-status.md](./docs/project-status.md)。
 
+如需再次替换基础数据，先看 [docs/baseline-refresh-playbook.md](./docs/baseline-refresh-playbook.md)。
+
 ## 目录结构
 
 - `src/`: 前端页面与计算逻辑
@@ -16,17 +18,27 @@
 ## 当前能力
 
 - 调整模型参数并重算目标跟踪结果
+- 支持 2026-2030 多年度连续计算、年份切换与展示区间筛选
 - 展示目标股、目标现、目标资产摘要
 - 录入实盘股、实盘现、收盘价
 - 直接在页面展示对照列与进度差
 - 通过本地服务把实盘记录写回 `data/tracking/actual-entries.json`
+
+## 计算口径
+
+- 目标股/目标现/目标资产的权威计算内核为 `src/lib/trackingCore.ts`。
+- 页面实时计算通过 `src/lib/tracking.ts` 复用该内核。
+- `scripts/tracking_tool.py recalc` 也会委托给同一套 TypeScript 内核，避免 Python 与前端各自维护一份公式。
+- 页面默认参数已与 `docs/dialog-tracking-draft.md` 对齐：`4900 / 2313.83 / 25.35 / 0.4 / 2535`，默认前置交易日为 `0`，从 `2026.06.01` 起算。
 
 ## 常用命令
 
 - `npm install`: 安装前端依赖
 - `npm run dev`: 启动本地开发服务
 - `npm run build`: 构建前端
+- `npm test`: 运行核心计算自动化测试
 - `npm run migrate:data`: 从 `docs/` 重新生成 JSON 数据
+- `npm run tracking:core -- compute`: 通过 stdin 调用 TS 计算内核（供脚本复用）
 - `python3 scripts/tracking_tool.py recalc`: 重算总表目标字段
 
 ## 数据说明
@@ -51,4 +63,4 @@
 ## 当前限制
 
 - 实盘写回目前还没有自动同步回 `docs/` 下的 Markdown 总表。
-- 当前 UI 主要围绕 2026 年交易日范围展开。
+- 历史总表 JSON 仍主要用于参考，页面当前实时重算以交易日 JSON + TS 计算内核为准。

@@ -1,4 +1,11 @@
-import { TRADING_DATES_2026 } from '../data/sources'
+import { ALL_TRADING_DATES, TRADING_DATES_2026 } from '../data/sources'
+import {
+  buildCoreTrackingRows,
+  buildProgressDelta,
+  findMatchedIndexByAssets,
+  roundMoney,
+  type CoreTrackingParams,
+} from './trackingCore'
 
 export interface TrackingParams {
   initialShares: number
@@ -40,99 +47,33 @@ export interface TrackingComparisonRow extends TrackingRow {
   totalAssetRatio: number | null
 }
 
-const roundMoney = (value: number) => Number(value.toFixed(2))
-
 export const syncLotCostFromPrice = (price: number) => roundMoney(price * 100)
 
 export const DEFAULT_PARAMS: TrackingParams = {
-  initialShares: 4400,
-  initialCash: 128.83,
-  price: 26,
+  initialShares: 4900,
+  initialCash: 2313.83,
+  price: 25.35,
   spread: 0.4,
-  lotCost: 2600,
-  hiddenTradingDays: 1,
+  lotCost: 2535,
+  hiddenTradingDays: 0,
   endDate: TRADING_DATES_2026[TRADING_DATES_2026.length - 1] ?? '2026.12.31',
 }
 
 export function buildRows(
   params: TrackingParams,
-  sourceDates: readonly string[] = TRADING_DATES_2026,
+  sourceDates: readonly string[] = ALL_TRADING_DATES,
 ): TrackingRow[] {
-  if (
-    params.initialShares < 0 ||
-    params.initialCash < 0 ||
-    params.price <= 0 ||
-    params.spread < 0 ||
-    params.lotCost <= 0 ||
-    params.hiddenTradingDays < 0
-  ) {
-    return []
-  }
-
   const dates = sourceDates.filter((date) => date <= params.endDate)
-  if (dates.length === 0) {
-    return []
+  const coreParams: CoreTrackingParams = {
+    initialShares: params.initialShares,
+    initialCash: params.initialCash,
+    price: params.price,
+    spread: params.spread,
+    lotCost: params.lotCost,
+    hiddenTradingDays: params.hiddenTradingDays,
   }
 
-  let shares = Math.trunc(params.initialShares)
-  let cash = roundMoney(params.initialCash)
-  const lotCost = roundMoney(params.lotCost)
-
-  const runOneTradingDay = () => {
-    const tProfit = roundMoney(shares * params.spread)
-    cash = roundMoney(cash + tProfit)
-
-    const lotsBought = Math.floor(cash / lotCost)
-    if (lotsBought > 0) {
-      shares += lotsBought * 100
-      cash = roundMoney(cash - lotsBought * lotCost)
-    }
-
-    return {
-      tProfit,
-      lotsBought,
-      targetCash: cash,
-      targetAssets: roundMoney(shares * params.price + cash),
-      targetShares: shares,
-    }
-  }
-
-  for (let day = 0; day < params.hiddenTradingDays; day += 1) {
-    runOneTradingDay()
-  }
-
-  return dates.map((date, index) => {
-    const snapshot = runOneTradingDay()
-
-    return {
-      index: index + 1,
-      date,
-      targetShares: snapshot.targetShares,
-      tProfit: snapshot.tProfit,
-      targetCash: snapshot.targetCash,
-      targetAssets: snapshot.targetAssets,
-      lotsBought: snapshot.lotsBought,
-    }
-  })
-}
-
-const findMatchedIndexByAssets = (
-  rows: readonly TrackingRow[],
-  totalAssets: number,
-) => rows.findIndex((row) => row.targetAssets >= totalAssets)
-
-const buildProgressDelta = (currentIndex: number, matchedIndex: number) => {
-  const dayDiff = matchedIndex - currentIndex
-
-  if (dayDiff > 0) {
-    return `提前${dayDiff}天`
-  }
-
-  if (dayDiff < 0) {
-    return `落后${Math.abs(dayDiff)}天`
-  }
-
-  return '正好当天'
+  return buildCoreTrackingRows(coreParams, dates)
 }
 
 export function buildComparisonRows(

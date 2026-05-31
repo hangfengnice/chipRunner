@@ -17,6 +17,17 @@
   --accent: #b06c20;
   --accent-deep: #23486f;
   --shadow: 0 24px 64px rgba(30, 42, 56, 0.14);
+  --table-text: #000;
+  --table-base-bg: rgba(246, 250, 255, 0.94);
+  --table-header-bg: rgba(234, 242, 251, 0.98);
+  --table-stripe-bg: rgba(222, 233, 246, 0.45);
+  --table-hover-bg: rgba(208, 223, 241, 0.55);
+  --table-buy-accent: rgba(148, 180, 214, 0.42);
+  --table-buy-glow: rgba(176, 204, 230, 0.18);
+  --tag-success-bg: rgba(224, 236, 247, 0.92);
+  --tag-warning-bg: rgba(216, 232, 247, 0.94);
+  --tag-danger-bg: rgba(229, 237, 246, 0.94);
+  --tag-info-bg: rgba(236, 242, 249, 0.94);
 }
 
 * {
@@ -159,6 +170,7 @@ select {
 }
 
 .form-panel .el-input-number,
+.form-panel .el-select,
 .form-panel .el-date-editor.el-input,
 .form-panel .el-date-editor.el-input__wrapper {
   width: 100%;
@@ -226,6 +238,7 @@ select {
 }
 
 .actual-form .el-input-number,
+.actual-form .el-select,
 .actual-form .el-date-editor.el-input,
 .actual-form .el-date-editor.el-input__wrapper {
   width: 100%;
@@ -301,14 +314,71 @@ select {
 }
 
 .buy-day-row {
-  --el-table-tr-bg-color: rgba(216, 170, 90, 0.14);
+  --el-table-tr-bg-color: transparent;
 }
 
-.el-table {
-  --el-table-header-bg-color: rgba(247, 242, 233, 0.9);
+.buy-day-row td.el-table__cell:first-child {
+  background: linear-gradient(90deg, var(--table-buy-glow), transparent 82%);
+  box-shadow: inset 3px 0 0 var(--table-buy-accent);
+}
+
+.table-panel .el-table {
+  --el-table-bg-color: var(--table-base-bg);
+  --el-table-header-bg-color: var(--table-header-bg);
   --el-table-border-color: var(--line);
-  --el-table-row-hover-bg-color: rgba(35, 72, 111, 0.05);
+  --el-table-row-hover-bg-color: var(--table-hover-bg);
   border-radius: 18px;
+  overflow: hidden;
+}
+
+.table-panel .el-table th.el-table__cell {
+  color: var(--table-text);
+  font-weight: 600;
+}
+
+.table-panel .el-table :is(th, td).el-table__cell {
+  color: var(--table-text);
+  border-bottom-color: rgba(29, 43, 61, 0.06);
+}
+
+.table-panel .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: var(--table-stripe-bg);
+}
+
+.table-panel .el-table :is(th, td).target-assets-column,
+.table-panel .el-table :is(th, td).target-assets-column .cell {
+  color: #000;
+  font-weight: 700;
+}
+
+.table-panel .el-tag {
+  border: 1px solid rgba(126, 154, 185, 0.22);
+  font-weight: 600;
+  color: var(--table-text);
+}
+
+.table-panel .el-tag--success {
+  --el-tag-bg-color: var(--tag-success-bg);
+  --el-tag-border-color: rgba(126, 154, 185, 0.22);
+  --el-tag-text-color: var(--table-text);
+}
+
+.table-panel .el-tag--warning {
+  --el-tag-bg-color: var(--tag-warning-bg);
+  --el-tag-border-color: rgba(117, 152, 191, 0.24);
+  --el-tag-text-color: var(--table-text);
+}
+
+.table-panel .el-tag--danger {
+  --el-tag-bg-color: var(--tag-danger-bg);
+  --el-tag-border-color: rgba(133, 157, 184, 0.22);
+  --el-tag-text-color: var(--table-text);
+}
+
+.table-panel .el-tag--info {
+  --el-tag-bg-color: var(--tag-info-bg);
+  --el-tag-border-color: rgba(133, 157, 184, 0.2);
+  --el-tag-text-color: var(--table-text);
 }
 
 .el-button--primary {
