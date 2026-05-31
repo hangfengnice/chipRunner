@@ -1,0 +1,356 @@
+:root {
+  font-family: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: #1b1f24;
+  background:
+    radial-gradient(circle at top left, rgba(209, 153, 74, 0.24), transparent 28%),
+    radial-gradient(circle at top right, rgba(40, 89, 143, 0.22), transparent 26%),
+    linear-gradient(180deg, #f7f1e7 0%, #edf2f8 48%, #f4ede2 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --panel-bg: rgba(255, 255, 255, 0.86);
+  --panel-border: rgba(29, 43, 61, 0.1);
+  --line: rgba(29, 43, 61, 0.08);
+  --ink: #1b1f24;
+  --muted: #5f6673;
+  --accent: #b06c20;
+  --accent-deep: #23486f;
+  --shadow: 0 24px 64px rgba(30, 42, 56, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.page-shell {
+  width: min(1400px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.hero-panel,
+.panel,
+.stat-card {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.hero-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 32px;
+  border-radius: 32px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(249, 243, 231, 0.8)),
+    rgba(255, 255, 255, 0.8);
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(35, 72, 111, 0.08);
+  color: var(--accent-deep);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-panel h1 {
+  margin: 16px 0 12px;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.hero-panel p {
+  margin: 0;
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.25fr) minmax(320px, 0.95fr);
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.panel {
+  border-radius: 28px;
+}
+
+.panel :is(.el-card__header, .el-card__body) {
+  border-color: var(--line);
+}
+
+.panel-title,
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.panel-title span,
+.panel-heading {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.panel-title small,
+.table-toolbar p,
+.notes-grid p,
+.stat-card p {
+  color: var(--muted);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.form-panel .el-input-number,
+.form-panel .el-date-editor.el-input,
+.form-panel .el-date-editor.el-input__wrapper {
+  width: 100%;
+}
+
+.form-panel .el-alert {
+  margin-top: 12px;
+}
+
+.stat-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.stat-card {
+  border-radius: 24px;
+}
+
+.stat-card .el-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stat-card strong {
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.accent-card {
+  background: linear-gradient(135deg, rgba(236, 206, 156, 0.88), rgba(255, 255, 255, 0.86));
+}
+
+.deep-card {
+  background: linear-gradient(135deg, rgba(206, 222, 240, 0.92), rgba(255, 255, 255, 0.86));
+}
+
+.notes-panel {
+  margin-top: 20px;
+}
+
+.actual-panel {
+  margin-top: 20px;
+}
+
+.actual-grid {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.1fr) minmax(280px, 0.9fr);
+  gap: 20px;
+}
+
+.actual-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.actual-form .el-input-number,
+.actual-form .el-date-editor.el-input,
+.actual-form .el-date-editor.el-input__wrapper {
+  width: 100%;
+}
+
+.actual-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actual-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.snapshot-card {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(243, 238, 228, 0.72));
+}
+
+.snapshot-card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.snapshot-card strong {
+  color: var(--ink);
+}
+
+.save-state {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.note-title {
+  display: inline-flex;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+.notes-grid p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.table-panel {
+  margin-top: 20px;
+}
+
+.table-toolbar p {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+
+.table-panel .el-tag {
+  min-width: 46px;
+}
+
+.buy-day-row {
+  --el-table-tr-bg-color: rgba(216, 170, 90, 0.14);
+}
+
+.el-table {
+  --el-table-header-bg-color: rgba(247, 242, 233, 0.9);
+  --el-table-border-color: var(--line);
+  --el-table-row-hover-bg-color: rgba(35, 72, 111, 0.05);
+  border-radius: 18px;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--accent-deep);
+  --el-button-border-color: var(--accent-deep);
+  --el-button-hover-bg-color: #2d5c8c;
+  --el-button-hover-border-color: #2d5c8c;
+}
+
+.el-switch {
+  --el-switch-on-color: var(--accent-deep);
+}
+
+@media (max-width: 960px) {
+  .page-shell {
+    width: min(100vw - 20px, 100%);
+    padding: 20px 0 32px;
+  }
+
+  .hero-panel,
+  .panel {
+    border-radius: 24px;
+  }
+
+  .hero-panel {
+    padding: 24px;
+    flex-direction: column;
+  }
+
+  .overview-grid,
+  .notes-grid,
+  .actual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid,
+  .actual-form {
+    grid-template-columns: 1fr;
+  }
+
+  .table-toolbar,
+  .panel-title {
+    flex-direction: column;
+  }
+}
