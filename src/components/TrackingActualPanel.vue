@@ -1,0 +1,145 @@
+<script setup lang="ts">
+import type { ActualEntryDraft } from '../composables/useActualEntryState'
+import type { TrackingComparisonRow } from '../lib/tracking'
+import { formatOptionalMoney } from '../lib/trackingDisplay'
+
+defineProps<{
+  actualEntryForm: ActualEntryDraft
+  selectedComparisonRow: TrackingComparisonRow | null
+  savedEntryCount: number
+  hasSavedEntry: boolean
+  actualEntriesUpdatedAt: string | null
+  isLoadingActualEntries: boolean
+  isSavingActualEntry: boolean
+  disableOutsideCalculatedRange: (date: Date) => boolean
+}>()
+
+const emit = defineEmits<{
+  clear: []
+  reload: []
+  save: []
+}>()
+</script>
+
+<template>
+  <el-card shadow="never" class="panel actual-panel">
+    <template #header>
+      <div class="panel-title">
+        <span>实盘录入</span>
+        <small>
+          录入后点击保存，会通过当前开发服务直接写回
+          data/tracking/actual-entries.json 并参与下方对照计算。
+        </small>
+      </div>
+    </template>
+
+    <div class="actual-grid">
+      <el-form label-position="top" class="actual-form">
+        <el-form-item label="记录日期">
+          <el-date-picker
+            v-model="actualEntryForm.date"
+            type="date"
+            format="YYYY.MM.DD"
+            value-format="YYYY.MM.DD"
+            :disabled-date="disableOutsideCalculatedRange"
+            placeholder="选择录入日期"
+          />
+        </el-form-item>
+
+        <el-form-item label="实盘股">
+          <el-input-number
+            v-model="actualEntryForm.actualShares"
+            :min="0"
+            :step="100"
+            controls-position="right"
+          />
+        </el-form-item>
+
+        <el-form-item label="实盘现">
+          <el-input-number
+            v-model="actualEntryForm.actualCash"
+            :min="0"
+            :step="100"
+            :precision="2"
+            controls-position="right"
+          />
+        </el-form-item>
+
+        <el-form-item label="收盘价">
+          <el-input-number
+            v-model="actualEntryForm.closePrice"
+            :min="0.01"
+            :step="0.01"
+            :precision="2"
+            controls-position="right"
+          />
+        </el-form-item>
+
+        <div class="actual-actions">
+          <el-button
+            type="primary"
+            :loading="isSavingActualEntry"
+            @click="emit('save')"
+          >
+            保存当日记录
+          </el-button>
+          <el-button :disabled="isSavingActualEntry" @click="emit('clear')">
+            清除当前记录
+          </el-button>
+          <el-button :loading="isLoadingActualEntries" @click="emit('reload')">
+            重新读取文件
+          </el-button>
+        </div>
+      </el-form>
+
+      <div class="actual-side">
+        <div class="snapshot-card">
+          <span class="note-title">当前目标基准</span>
+          <p>
+            目标股
+            <strong>{{ selectedComparisonRow?.targetShares ?? '--' }}</strong>
+          </p>
+          <p>
+            目标现
+            <strong>
+              {{
+                formatOptionalMoney(selectedComparisonRow?.targetCash ?? null)
+              }}
+            </strong>
+          </p>
+          <p>
+            目标资产
+            <strong>
+              {{
+                formatOptionalMoney(selectedComparisonRow?.targetAssets ?? null)
+              }}
+            </strong>
+          </p>
+        </div>
+
+        <div class="snapshot-card">
+          <span class="note-title">保存状态</span>
+          <div class="save-state">
+            <el-tag type="success" effect="light">
+              已保存 {{ savedEntryCount }} 条
+            </el-tag>
+            <el-tag :type="hasSavedEntry ? 'primary' : 'info'" effect="plain">
+              {{ hasSavedEntry ? '当前日期已保存' : '当前日期未保存' }}
+            </el-tag>
+          </div>
+          <p>
+            {{
+              actualEntriesUpdatedAt
+                ? `最近写回时间：${actualEntriesUpdatedAt}`
+                : '当前还没有已写回的实盘记录'
+            }}
+          </p>
+          <p>
+            只要当前开发服务在运行，页面保存和清除都会直接改写仓库里的 JSON
+            文件。
+          </p>
+        </div>
+      </div>
+    </div>
+  </el-card>
+</template>

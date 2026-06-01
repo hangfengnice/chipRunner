@@ -41,9 +41,10 @@
 ### 结构化数据
 
 - `scripts/migrate_data.py` 负责把 `docs/` 中的 Markdown 迁移为 JSON
+- 跟踪总表会同时生成整表 JSON 和 `.meta.json` 轻量摘要，前端首屏优先读取摘要以减小主包
 - 前端当前读取：
   - `data/calendar/2026-remaining-trading-dates.json`
-  - `data/tracking/2026-2028-tracking-total-table.json`
+  - `data/tracking/2026-2028-tracking-total-table.meta.json`
   - `data/tracking/actual-entries.json`
 
 ### 计算内核

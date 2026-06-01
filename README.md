@@ -45,6 +45,7 @@
 
 - `docs/` 保留原始 Markdown，方便人工核对和聊天展示。
 - `data/` 是前端直接消费的结构化 JSON，后续新增页面功能时优先读取这里。
+- `data/tracking/*.meta.json` 保存轻量摘要，前端首屏优先读取它，避免把整份历史总表打进主包。
 - 如果 Markdown 有更新，先执行 `npm run migrate:data`，再让前端读取新数据。
 
 ## 写回说明

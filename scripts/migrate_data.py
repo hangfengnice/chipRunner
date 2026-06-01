@@ -42,6 +42,15 @@ def write_json(file_path: Path, payload: object) -> None:
     )
 
 
+def build_tracking_meta(payload: dict) -> dict:
+    return {
+        "sourceFile": payload["sourceFile"],
+        "dateFrom": payload["dateFrom"],
+        "dateTo": payload["dateTo"],
+        "rowCount": payload["rowCount"],
+    }
+
+
 def parse_calendar_file(source_path: Path) -> dict:
     text = source_path.read_text(encoding="utf-8")
     lines = text.splitlines()
@@ -152,6 +161,10 @@ def main() -> int:
         source_path = DOCS_DIR / file_name
         payload = parse_tracking_file(source_path)
         write_json(TRACKING_DIR / file_name.replace(".md", ".json"), payload)
+        write_json(
+            TRACKING_DIR / file_name.replace(".md", ".meta.json"),
+            build_tracking_meta(payload),
+        )
 
     print("数据迁移完成")
     print(f"calendar: {len(CALENDAR_FILES)}")
