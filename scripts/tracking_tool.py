@@ -228,6 +228,27 @@ def recalc_rows(parsed: ParsedTable, pre_days: int | None = None) -> None:
         parsed.lines[line_idx] = "| " + " | ".join(cols) + " |"
 
 
+def trim_rows_before_start_date(parsed: ParsedTable) -> None:
+    keep_cols = []
+    drop_line_indexes = []
+
+    for line_idx, cols in parsed.rows:
+        if cols[0] < parsed.params.start_date:
+            drop_line_indexes.append(line_idx)
+            continue
+        keep_cols.append(cols)
+
+    if not keep_cols:
+        raise ValueError("起始交易日晚于表内所有日期，无法重算")
+
+    for line_idx in reversed(drop_line_indexes):
+        del parsed.lines[line_idx]
+
+    parsed.rows = [
+        (parsed.data_start_idx + offset, cols) for offset, cols in enumerate(keep_cols)
+    ]
+
+
 def update_params_in_text(parsed: ParsedTable) -> None:
     reverse_map = {v: k for k, v in PARAM_LABELS.items()}
     values = {
@@ -260,6 +281,8 @@ def cmd_recalc(args: argparse.Namespace) -> int:
         parsed.params.spread = args.spread
     if args.lot_cost is not None:
         parsed.params.lot_cost = args.lot_cost
+
+    trim_rows_before_start_date(parsed)
 
     recalc_rows(parsed, pre_days=args.pre_days)
     update_params_in_text(parsed)

@@ -29,7 +29,7 @@
 - 目标股/目标现/目标资产的权威计算内核为 `src/lib/trackingCore.ts`。
 - 页面实时计算通过 `src/lib/tracking.ts` 复用该内核。
 - `scripts/tracking_tool.py recalc` 也会委托给同一套 TypeScript 内核，避免 Python 与前端各自维护一份公式。
-- 页面默认参数已与 `docs/dialog-tracking-draft.md` 对齐：`4900 / 2313.83 / 25.35 / 0.4 / 2535`，默认前置交易日为 `0`，从 `2026.06.01` 起算。
+- 页面默认参数已与 `docs/dialog-tracking-draft.md` 对齐：`2600 / 1376.18 / 40.20 / 0.5 / 4020`，默认前置交易日为 `0`，从 `2026.06.03` 起算。
 
 ## 常用命令
 

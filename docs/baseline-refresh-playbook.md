@@ -4,12 +4,12 @@
 
 ## 本次替换记录
 
-- 起始交易日：`2026.06.01`
-- 初始持股：`4900`
-- 初始现金：`2313.83`
-- 固定价格：`25.35`
-- 每股每日可获取差价：`0.4`
-- 每手成本：`2535`
+- 起始交易日：`2026.06.03`
+- 初始持股：`2600`
+- 初始现金：`1376.18`
+- 固定价格：`40.20`
+- 每股每日可获取差价：`0.5`
+- 每手成本：`4020`
 - 前置交易日：`0`
 
 ## 这次实际改动了什么
@@ -84,22 +84,22 @@
 ```bash
 python3 scripts/tracking_tool.py recalc \
   --file docs/2026-tracking-total-table.md \
-  --start-date 2026.06.01 \
-  --initial-shares 4900 \
-  --initial-cash 2313.83 \
-  --price 25.35 \
-  --spread 0.4 \
-  --lot-cost 2535 \
+  --start-date 2026.06.03 \
+  --initial-shares 2600 \
+  --initial-cash 1376.18 \
+  --price 40.20 \
+  --spread 0.5 \
+  --lot-cost 4020 \
   --pre-days 0
 
 python3 scripts/tracking_tool.py recalc \
   --file docs/2026-2028-tracking-total-table.md \
-  --start-date 2026.06.01 \
-  --initial-shares 4900 \
-  --initial-cash 2313.83 \
-  --price 25.35 \
-  --spread 0.4 \
-  --lot-cost 2535 \
+  --start-date 2026.06.03 \
+  --initial-shares 2600 \
+  --initial-cash 1376.18 \
+  --price 40.20 \
+  --spread 0.5 \
+  --lot-cost 4020 \
   --pre-days 0
 ```
 

@@ -57,9 +57,9 @@ targetAssets = shares * price + cash
 ### Default Model Parameters
 
 Current baseline (aligned with `docs/dialog-tracking-draft.md` and `DEFAULT_PARAMS` in `tracking.ts`):
-- Initial shares: 4900, initial cash: 2313.83, fixed price: 25.35
-- Daily spread/share: 0.4, lot cost: 2535
-- Hidden pre-trading days: 0, start date: 2026.06.01
+- Initial shares: 2600, initial cash: 1376.18, fixed price: 40.20
+- Daily spread/share: 0.5, lot cost: 4020
+- Hidden pre-trading days: 0, start date: 2026.06.03
 
 The authoritative params source is `docs/dialog-tracking-draft.md`. When params change, update both the draft and `DEFAULT_PARAMS` in `src/lib/tracking.ts`.
 
@@ -68,7 +68,7 @@ The authoritative params source is `docs/dialog-tracking-draft.md`. When params 
 - `docs/dialog-tracking-draft.md` — authoritative model params, rules, output format
 - `docs/project-status.md` — current project status and next steps (read first when resuming work)
 - `docs/baseline-refresh-playbook.md` — procedure for replacing base data and re-syncing params
-- `docs/2026-remaining-trading-dates.md` — valid trading dates after 2026.06.01
+- `docs/2026-remaining-trading-dates.md` — valid trading dates after 2026.06.03
 - `data/calendar/*.json` — structured trading calendars (frontend reads these, not the Markdown)
 - `data/tracking/*.meta.json` — lightweight tracking table summaries (date range, row count)
 

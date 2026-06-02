@@ -1,6 +1,6 @@
 # 项目状态记录
 
-更新时间：2026-05-31
+更新时间：2026-06-02
 
 ## 当前状态
 
@@ -10,8 +10,11 @@
 - 前端直接消费的结构化数据已经迁移到 `data/`。
 - 目标重算公式已收敛到 TypeScript 单一内核，避免前端与 Python 双实现分叉。
 - 前端默认参数已对齐 `docs/dialog-tracking-draft.md` 的权威口径。
-- 当前基础参数口径：起始日 `2026.06.01`，初始股 `4900`，初始现 `2313.83`，股价 `25.35`，每日差价 `0.4`，每手成本 `2535`。
+- 当前基础参数口径：起始日 `2026.06.03`，初始股 `2600`，初始现 `1376.18`，股价 `40.20`，每日差价 `0.5`，每手成本 `4020`。
 - 本次基础数据替换的具体链路、命令和优化建议已整理到 `docs/baseline-refresh-playbook.md`。
+- 首屏已完成一次瘦身：前端不再把完整历史总表直接打进主包，而是优先读取 `data/tracking/*.meta.json` 轻量摘要。
+- 页面已从单文件大组件拆成 `App.vue + components + composables` 结构，`App.vue` 主要负责装配，各块职责已分离。
+- 年份视图切回“全部年份”时的数据范围问题已修复；当前会把计算截止日扩展到最后可用交易日，再同步展示区间。
 
 ## 当前目录口径
 
@@ -52,6 +55,15 @@
 - 权威计算内核：`src/lib/trackingCore.ts`
 - 前端页面：`src/lib/tracking.ts` 调用该内核并补充实盘对照列计算
 - Python 工具：`scripts/tracking_tool.py recalc` 通过 `npm run tracking:core -- compute` 调用同一 TS 内核返回重算结果
+- 年份视图的截止日决策已单独抽到 `src/lib/trackingYearScope.ts`，便于后续继续维护或补测试
+
+### 页面状态组织
+
+- `src/App.vue` 只负责页面装配
+- `src/components/` 下按展示区域拆分为 hero、概览、实盘录入、说明、表格几个组件
+- `src/composables/useTrackingDashboard.ts` 负责年份视图、展示区间、汇总和表格派生状态
+- `src/composables/useActualEntryState.ts` 负责实盘录入表单、读取、写回与清除逻辑
+- `src/lib/trackingDisplay.ts` 负责金额、比例和差额标签等纯展示格式化
 
 ### 实盘写回
 
@@ -73,11 +85,13 @@
 - `npm run build` 已通过
 - `npm test` 已通过（覆盖核心重算与进度对照）
 - `/api/actual-entries` 的 `GET / POST / DELETE` 已做过往返验证
+- `npx vitest run tests/trackingYearScope.test.ts` 已通过，覆盖“全部年份”与年份切回的截止日行为
 
 ## 当前工作区提醒
 
 - 当前仓库处于一次较大目录重构之后的工作区状态。
 - 根目录已经切换为 Vite 项目入口，原始 Markdown 已迁移到 `docs/`。
+- 当前 `git status --short` 为空，工作区是干净状态。
 - 下次重新打开前，优先执行 `git status --short`，先确认是否仍有未提交改动，再继续开发。
 
 ## 关闭前建议
@@ -92,11 +106,13 @@
 - 第一步：阅读本文件，确认当前架构和限制。
 - 第二步：阅读 `README.md`，确认目录和命令。
 - 第三步：执行 `git status --short`，确认当前是否还有未提交变更。
-- 第四步：如需看页面，优先复用现有开发服务；如果服务不存在，再执行 `npm run dev`。
-- 第五步：如需核对交易逻辑，优先回到 `docs/dialog-tracking-draft.md` 和 `data/` 中的 JSON 数据。
+- 第四步：如需看页面，先执行 `npm run dev` 或确认现有服务仍可复用。
+- 第五步：如需核对年份视图问题，优先查看 `src/composables/useTrackingDashboard.ts` 与 `src/lib/trackingYearScope.ts`。
+- 第六步：如需核对交易逻辑，优先回到 `docs/dialog-tracking-draft.md` 和 `data/` 中的 JSON 数据。
 
 ## 建议的下一步
 
 - 将 `actual-entries.json` 同步回 Markdown 总表的实盘列
 - 增加导出能力，支持 JSON 或 Markdown
 - 为多年度视图补充更完整的年份汇总、快捷跳转和导出能力
+- 如需继续稳固年份视图，可补一层组件级联动测试，覆盖年份切换与展示区间同步

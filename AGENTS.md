@@ -11,7 +11,7 @@
   - 计算规则
   - 输出列顺序
   - 偏好的回复格式
-- 将 [docs/2026-remaining-trading-dates.md](./docs/2026-remaining-trading-dates.md) 作为 `2026.06.01` 之后有效交易日的权威来源。
+- 将 [docs/2026-remaining-trading-dates.md](./docs/2026-remaining-trading-dates.md) 作为 `2026.06.03` 之后有效交易日的权威来源。
 - 将 [docs/project-status.md](./docs/project-status.md) 作为当前项目进度、数据流和下次恢复工作的第一参考文件。
 - 将 [README.md](./README.md) 作为目录结构和常用命令入口说明。
 
@@ -57,7 +57,7 @@
 - Markdown 迁移为 JSON：`npm run migrate:data`
 - 跟踪工具脚本：[scripts/tracking_tool.py](./scripts/tracking_tool.py)
   - 一键重算总表目标字段：`python3 scripts/tracking_tool.py recalc --file docs/2026-2028-tracking-total-table.md`
-  - 调整初始参数并重算：`python3 scripts/tracking_tool.py recalc --start-date 2026.06.01 --initial-shares 4900 --initial-cash 2313.83 --price 25.35 --spread 0.4 --lot-cost 2535 --pre-days 0`
+  - 调整初始参数并重算：`python3 scripts/tracking_tool.py recalc --start-date 2026.06.03 --initial-shares 2600 --initial-cash 1376.18 --price 40.20 --spread 0.5 --lot-cost 4020 --pre-days 0`
   - 按日期区间提取数据：`python3 scripts/tracking_tool.py range --date-from 2027.03.01 --date-to 2027.06.30`
   - 区间提取精简视图：`python3 scripts/tracking_tool.py range --date-from 2026.06.01 --date-to 2026.12.31 --view core`
   - 按当前总资产定位目标日期与进度差：`python3 scripts/tracking_tool.py progress --date 2026.06.10 --total-assets 143208.83`
