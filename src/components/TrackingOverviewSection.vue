@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Calendar, Coin, DataAnalysis } from '@element-plus/icons-vue'
+import { Calendar, Coin, DataAnalysis, RefreshRight } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import type { TrackingParams } from '../lib/tracking'
 import { formatMoney } from '../lib/trackingDisplay'
+import type { Account } from '../lib/accountState'
 import type {
   DisplayRangeDraft,
   TrackingSummary,
@@ -10,6 +11,7 @@ import type {
 } from '../composables/useTrackingDashboard'
 
 const props = defineProps<{
+  account: Account | undefined
   availableDateFrom: string
   availableDateTo: string
   totalAvailableTradingDays: number
@@ -25,6 +27,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:selectedYearScope': [value: string]
+  restorePreset: []
+  syncLotCost: []
 }>()
 
 const selectedYearScopeModel = computed({
@@ -40,11 +44,23 @@ const selectedYearScopeModel = computed({
     <el-card shadow="never" class="panel form-panel">
       <template #header>
         <div class="panel-title">
-          <span>模型参数</span>
-          <small>
-            当前原型接入 {{ availableDateFrom }} - {{ availableDateTo }} 的
-            {{ totalAvailableTradingDays }} 个交易日
-          </small>
+          <div>
+            <span>模型参数</span>
+            <small v-if="account">
+              当前账户:<strong>{{ account.name }}</strong>
+            </small>
+            <small>
+              接入 {{ availableDateFrom }} - {{ availableDateTo }}
+              的 {{ totalAvailableTradingDays }} 个交易日
+            </small>
+          </div>
+          <div class="panel-actions">
+            <el-button @click="emit('syncLotCost')">每手成本跟随股价</el-button>
+            <el-button type="primary" @click="emit('restorePreset')">
+              <el-icon><RefreshRight /></el-icon>
+              应用底稿默认参数
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -159,7 +175,7 @@ const selectedYearScopeModel = computed({
         type="warning"
         :closable="false"
         show-icon
-        title="最新基础数据从 2026.06.03 起算，默认前置交易日为 0；年份视图和展示区间只影响展示，不会重置累计过程。"
+        title="最新基础数据从 2026.06.15 起算，默认前置交易日为 0；年份视图和展示区间只影响展示，不会重置累计过程。"
       />
     </el-card>
 
@@ -180,7 +196,7 @@ const selectedYearScopeModel = computed({
         </div>
         <strong>{{ formatMoney(summary.lastAssets) }}</strong>
         <p>
-          {{ summary.lastDate }}，目标现金 {{ formatMoney(summary.lastCash) }}
+          {{ summary.lastDate }}，预期现金 {{ formatMoney(summary.lastCash) }}
         </p>
       </el-card>
 
@@ -198,3 +214,29 @@ const selectedYearScopeModel = computed({
     </div>
   </section>
 </template>
+
+<style scoped>
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.panel-title > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.panel-title small {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+</style>

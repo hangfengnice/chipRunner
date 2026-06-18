@@ -27,7 +27,7 @@ interface TrackingState {
 
 export const roundMoney = (value: number) => Number(value.toFixed(2))
 
-export const isValidCoreTrackingParams = (params: CoreTrackingParams) =>
+const isValidCoreTrackingParams = (params: CoreTrackingParams) =>
   !(
     params.initialShares < 0 ||
     params.initialCash < 0 ||

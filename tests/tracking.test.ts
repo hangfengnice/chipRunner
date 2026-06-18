@@ -14,6 +14,7 @@ const DATE_RANGE = ['2026.06.03', '2026.06.04', '2026.06.05']
 describe('buildRows', () => {
   it('filters rows by endDate when source dates are provided', () => {
     const params: TrackingParams = {
+      startDate: '2026.06.03',
       initialShares: 2600,
       initialCash: 1376.18,
       price: 40.2,
@@ -39,43 +40,43 @@ describe('buildRows', () => {
       ALL_TRADING_DATES,
     )
 
-    expect(rows).toHaveLength(149)
+    expect(rows).toHaveLength(139)
     expect(rows.slice(-4)).toEqual([
       {
-        index: 146,
+        index: 136,
         date: '2026.12.30',
-        tProfit: 7750,
-        lotsBought: 2,
-        targetCash: 2206.18,
-        targetAssets: 633346.18,
-        targetShares: 15700,
+        tProfit: 49080,
+        lotsBought: 14,
+        targetCash: 718.3,
+        targetAssets: 1529440.3,
+        targetShares: 42300,
       },
       {
-        index: 147,
+        index: 137,
         date: '2026.12.31',
-        tProfit: 7850,
-        lotsBought: 2,
-        targetCash: 2016.18,
-        targetAssets: 641196.18,
-        targetShares: 15900,
+        tProfit: 50760,
+        lotsBought: 14,
+        targetCash: 882.3,
+        targetAssets: 1580200.3,
+        targetShares: 43700,
       },
       {
-        index: 148,
+        index: 138,
         date: '2027.01.04',
-        tProfit: 7950,
-        lotsBought: 2,
-        targetCash: 1926.18,
-        targetAssets: 649146.18,
-        targetShares: 16100,
+        tProfit: 52440,
+        lotsBought: 14,
+        targetCash: 2726.3,
+        targetAssets: 1632640.3,
+        targetShares: 45100,
       },
       {
-        index: 149,
+        index: 139,
         date: '2027.01.05',
-        tProfit: 8050,
-        lotsBought: 2,
-        targetCash: 1936.18,
-        targetAssets: 657196.18,
-        targetShares: 16300,
+        tProfit: 54120,
+        lotsBought: 15,
+        targetCash: 2636.3,
+        targetAssets: 1686760.3,
+        targetShares: 46600,
       },
     ])
   })
@@ -152,5 +153,27 @@ describe('buildComparisonRows', () => {
 
     expect(rows[2].targetMatchedDate).toBe('超出范围（最后日期 2026.06.05）')
     expect(rows[2].progressDelta).toBe('超前超出范围')
+  })
+
+  it('keeps entries from different accounts fully isolated', () => {
+    const accountA: Record<string, ActualPositionEntry> = {
+      '2026.06.04': {
+        date: '2026.06.04',
+        actualShares: 2600,
+        actualCash: 4200,
+        closePrice: 40.2,
+      },
+    }
+    const accountB: Record<string, ActualPositionEntry> = {}
+
+    const rowsA = buildComparisonRows(baseRows, accountA)
+    const rowsB = buildComparisonRows(baseRows, accountB)
+
+    expect(rowsA[1]?.actualShares).toBe(2600)
+    expect(rowsB[1]?.actualShares).toBeNull()
+    expect(rowsA[0]?.actualShares).toBeNull()
+    expect(rowsB[0]?.actualShares).toBeNull()
+    expect(rowsB[1]?.cashDelta).toBeNull()
+    expect(rowsB[1]?.progressDelta).toBe('')
   })
 })

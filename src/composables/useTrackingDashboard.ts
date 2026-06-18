@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch, type Ref } from 'vue'
 import {
   buildComparisonRows,
   buildRows,
@@ -8,13 +8,12 @@ import {
   type TrackingParams,
 } from '../lib/tracking'
 import {
-  ALL_TRADING_DATE_FROM,
   ALL_TRADING_DATE_TO,
   ALL_TRADING_DATES,
   CALENDAR_BY_YEAR,
   CALENDAR_YEARS,
-  LEGACY_TRACKING_2026_2028_META,
 } from '../data/sources'
+import type { Account, AppState } from '../lib/accountState'
 import { useActualEntryState } from './useActualEntryState'
 import { resolveScopeEndDate } from '../lib/trackingYearScope'
 
@@ -44,6 +43,39 @@ const toIsoDate = (value: string) => value.replaceAll('.', '-')
 const toDateTime = (value: string) =>
   new Date(`${toIsoDate(value)}T00:00:00`).getTime()
 
+const formatCurrentDate = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return `${year}.${month}.${day}`
+}
+
+const resolvePreferredDate = (
+  dates: readonly string[],
+  fallbackDate: string,
+) => {
+  if (!dates.length) {
+    return fallbackDate
+  }
+
+  const today = formatCurrentDate()
+
+  if (dates.includes(today)) {
+    return today
+  }
+
+  for (let index = dates.length - 1; index >= 0; index -= 1) {
+    const candidate = dates[index]
+    if (candidate <= today) {
+      return candidate
+    }
+  }
+
+  return dates[0] ?? fallbackDate
+}
+
 const clampDateWithin = (value: string, min: string, max: string) => {
   if (value < min) {
     return min
@@ -56,26 +88,67 @@ const clampDateWithin = (value: string, min: string, max: string) => {
   return value
 }
 
-export function useTrackingDashboard() {
-  const form = reactive<TrackingParams>({ ...DEFAULT_PARAMS })
-  const availableDateFrom = ALL_TRADING_DATE_FROM
+interface UseTrackingDashboardOptions {
+  account: Ref<Account | undefined>
+  state: Ref<AppState>
+  onStateChange: (next: AppState) => void
+}
+
+export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
+  const { account, state, onStateChange } = options
+
+  const form = reactive<TrackingParams>({
+    ...DEFAULT_PARAMS,
+  })
+
+  const syncFormFromAccount = () => {
+    const target = account.value
+    if (!target) return
+    Object.assign(form, target.params)
+    clampEndDate()
+  }
+
+  const writeFormBackToAccount = () => {
+    const target = account.value
+    if (!target) return
+    onStateChange({
+      ...state.value,
+      accounts: {
+        ...state.value.accounts,
+        [target.id]: {
+          ...target,
+          params: { ...form },
+        },
+      },
+    })
+  }
+
+  const availableDateFrom = DEFAULT_PARAMS.startDate
   const availableDateTo = ALL_TRADING_DATE_TO
-  const totalAvailableTradingDays = ALL_TRADING_DATES.length
+  const totalAvailableTradingDays = ALL_TRADING_DATES.filter(
+    (date) => date >= availableDateFrom,
+  ).length
   const firstCalendarYear = CALENDAR_YEARS[0]?.year
   const lastCalendarYear = CALENDAR_YEARS[CALENDAR_YEARS.length - 1]?.year
   const defaultYearScope = String(firstCalendarYear ?? 'all')
 
-  form.endDate = clampDateWithin(
-    form.endDate,
-    availableDateFrom,
-    availableDateTo,
-  )
+  const clampEndDate = () => {
+    form.endDate = clampDateWithin(
+      form.endDate,
+      availableDateFrom,
+      availableDateTo,
+    )
+  }
+
+  clampEndDate()
 
   const showRecentOnly = ref(false)
-  const legacyTableMeta = LEGACY_TRACKING_2026_2028_META
   const selectedYearScope = ref(defaultYearScope)
   const displayRange = reactive<DisplayRangeDraft>({
-    dateFrom: availableDateFrom,
+    dateFrom: resolvePreferredDate(
+      ALL_TRADING_DATES.filter((date) => date >= availableDateFrom),
+      availableDateFrom,
+    ),
     dateTo: form.endDate,
   })
 
@@ -102,21 +175,20 @@ export function useTrackingDashboard() {
       ? `${firstCalendarYear}-${lastCalendarYear}`
       : 'Multi-Year'
 
-  const rows = computed(() => buildRows({ ...form }, ALL_TRADING_DATES))
+  const rows = computed(() =>
+    buildRows({ ...form }, ALL_TRADING_DATES),
+  )
 
   const {
-    actualEntries,
-    actualEntriesUpdatedAt,
     actualEntryForm,
     clearActualEntry,
     hasSavedActualEntry,
-    isLoadingActualEntries,
-    isSavingActualEntry,
-    loadActualEntries,
     saveActualEntry,
     savedEntryCount,
   } = useActualEntryState({
-    availableDateFrom,
+    account,
+    state,
+    onStateChange,
     rows,
     getDefaultPrice: () => form.price,
   })
@@ -181,21 +253,20 @@ export function useTrackingDashboard() {
 
   const restorePreset = () => {
     Object.assign(form, DEFAULT_PARAMS)
-    form.endDate = clampDateWithin(
-      form.endDate,
-      availableDateFrom,
-      availableDateTo,
-    )
+    clampEndDate()
     selectedYearScope.value = defaultYearScope
+    writeFormBackToAccount()
   }
 
   const syncLotCost = () => {
     form.lotCost = syncLotCostFromPrice(form.price)
+    writeFormBackToAccount()
   }
 
-  const comparisonRows = computed(() =>
-    buildComparisonRows(rows.value, actualEntries.value),
-  )
+  const comparisonRows = computed(() => {
+    const entries = account.value?.actualEntries ?? {}
+    return buildComparisonRows(rows.value, entries)
+  })
 
   const rangedComparisonRows = computed(() =>
     comparisonRows.value.filter(
@@ -237,6 +308,24 @@ export function useTrackingDashboard() {
     () =>
       comparisonRows.value.find((row) => row.date === actualEntryForm.date) ??
       null,
+  )
+
+  // When the selected account changes, rehydrate form from its params.
+  watch(
+    () => account.value?.id,
+    () => {
+      syncFormFromAccount()
+    },
+    { immediate: true },
+  )
+
+  // Persist form edits back into the account on every change.
+  watch(
+    () => ({ ...form }),
+    () => {
+      writeFormBackToAccount()
+    },
+    { deep: true },
   )
 
   watch(
@@ -293,7 +382,6 @@ export function useTrackingDashboard() {
       if (!nextRows.length) {
         return
       }
-
       syncDisplayRangeWithinCalculated()
     },
     { immediate: true },
@@ -332,25 +420,15 @@ export function useTrackingDashboard() {
   }
 
   return {
-    actualEntriesUpdatedAt,
-    actualEntryForm,
+    form,
     availableDateFrom,
     availableDateTo,
-    clearActualEntry,
     disableDisplayDateFrom,
     disableDisplayDateTo,
     disableOutsideAvailableRange,
     disableOutsideCalculatedRange,
     displayRange,
-    form,
-    hasSavedActualEntry,
-    isLoadingActualEntries,
-    isSavingActualEntry,
-    legacyTableMeta,
-    loadActualEntries,
     restorePreset,
-    saveActualEntry,
-    savedEntryCount,
     selectedComparisonRow,
     selectedYearScope,
     showRecentOnly,
@@ -360,5 +438,10 @@ export function useTrackingDashboard() {
     totalAvailableTradingDays,
     visibleRows,
     yearScopeOptions,
+    actualEntryForm,
+    clearActualEntry,
+    hasSavedActualEntry,
+    saveActualEntry,
+    savedEntryCount,
   }
 }

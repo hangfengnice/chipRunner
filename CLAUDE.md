@@ -4,85 +4,135 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-chipRunner is a stock trading strategy tracking prototype (Chinese language UI). It models a T+0 day trading strategy for Chinese A-shares, calculating target share accumulation, cash, and total assets across trading days from 2026–2030. Users record actual trading positions and compare against model targets.
+chipRunner 是一个基于 Vue 3 + Element Plus 的多账户交易跟踪原型(中文 UI)。每个账户拥有独立的模型参数(`TrackingParams`)和实盘买/卖记录,互不干扰。计算内核 `src/lib/trackingCore.ts` 按固定规则逐日累加,前端将实盘录入通过 Vite 中间件直接写回 `data/tracking/state.json`。
 
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server (required for actual-entry write-back)
-npm run build        # vue-tsc type check + vite build
-npm test             # Vitest 3.x — runs all tests in tests/
-npm run test:watch   # Vitest in watch mode
-npm run migrate:data # python3 scripts/migrate_data.py — regenerate JSON from docs/ Markdown
-npm run tracking:core -- compute  # TS calculation kernel via stdin/stdout JSON (used by Python tool)
-python3 scripts/tracking_tool.py recalc   # Recalculate target fields
-python3 scripts/tracking_tool.py range --date-from 2027.03.01 --date-to 2027.06.30  # Extract date range
-python3 scripts/tracking_tool.py progress --date 2026.06.10 --total-assets 35101     # Locate progress vs target
+npm run dev          # Vite dev server (依赖其写入 state.json)
+npm run build        # vue-tsc -b 类型检查 + vite build
+npm test             # Vitest 3.x — 运行全部 tests/
+npm run test:watch   # Vitest watch 模式
 ```
 
-Run a single test file: `npx vitest run tests/trackingCore.test.ts`
+跑单个测试:`npx vitest run tests/appState.test.ts`
 
 ## Architecture
 
-### Calculation Kernel
+### 计算内核(纯函数,无 Vue / 无 IO)
+`src/lib/trackingCore.ts` —— 权威计算引擎。
 
-`src/lib/trackingCore.ts` is the authoritative calculation engine. `runOneTradingDay()` implements:
+- `runOneTradingDay(state, params)`:
+  ```
+  tProfit = shares * spread
+  cash += tProfit
+  lotsBought = floor(cash / lotCost)
+  if lotsBought > 0: shares += lotsBought * 100, cash -= lotsBought * lotCost
+  targetAssets = shares * price + cash
+  ```
+- `buildCoreTrackingRows(params, dates)` 先跑 `hiddenTradingDays` 次"预热"(结果不进入输出),再映射日期数组。
+- `findMatchedIndexByAssets` / `buildProgressDelta` 提供进度定位。
+- `isValidCoreTrackingParams` 是模块内部 helper(不导出)。
 
+### 数据模型
+
+**`src/lib/accountState.ts`** 定义多账户状态:
+
+```ts
+interface Account {
+  id: string                                    // nanoid(8) 自生成
+  name: string                                  // 用户可重命名
+  params: TrackingParams                        // 完整参数集(从 DEFAULT_PARAMS 复制)
+  actualEntries: Record<string, ActualPositionEntry>
+  updatedAt: string
+}
+
+interface AppState {
+  version: 1
+  selectedAccountId: string
+  accounts: Record<string, Account>
+  updatedAt: string
+}
 ```
-tProfit = shares * spread
-cash += tProfit
-lotsBought = floor(cash / lotCost)
-if lotsBought > 0: shares += lotsBought * 100, cash -= lotsBought * lotCost
-targetAssets = shares * price + cash
+
+提供纯函数助手:`createSeedState({ legacyEntries, legacyParams })` / `createDefaultAccount` / `createAccount` / `renameAccount` / `deleteAccount` / `selectAccount` / `upsertAccount` / `getSelectedAccount` / `getAccountEntries` / `setAccountEntry` / `removeAccountEntry`。所有更新都是不可变(spread)。
+
+账户 id 由内置 `generateAccountId()`(8 位 `[a-z0-9]`)生成,不是 nanoid——无额外依赖。账户名经 `buildUniqueName` 去重(同名自动加 `(2)`/`(3)`),`deleteAccount` / `selectAccount` / `renameAccount` / `setAccountEntry` / `removeAccountEntry` 在目标缺失时返回原 `state`(无副作用),便于上层用引用比较判空。
+
+### 数据流
+
+1. **日历**:`data/calendar/*.json`(5 份,2026–2030)→ `src/data/sources.ts` 合并为 `ALL_TRADING_DATES`(去重升序),按年索引到 `CALENDAR_BY_YEAR`。`ALL_TRADING_DATE_TO` 动态取最晚交易日;新日历加入时无需改默认值。
+2. **状态**: `data/tracking/state.json` 持久化整个 `AppState`。服务端启动时若文件不存在,自动注入单"默认账户"(`DEFAULT_PARAMS`,空实盘);若老的 `actual-entries.json` 仍存在,会迁入默认账户后删除。
+3. **行计算**: `src/lib/tracking.ts` 用 `buildRows(params, ALL_TRADING_DATES)` 调用计算内核,加日期过滤;`buildComparisonRows(rows, entries)` 叠加实盘对照。
+4. **UI 分层**:
+   - **所有账户写回统一走 `onStateChange`**:App.vue 把 `useAppState.updateState` 作为 `onStateChange` 传给子 composable。子 composable 用 `accountState` 纯函数算出**新的** `AppState`,再 `onStateChange(next)` 回灌——**不要**直接改 `account.value` 或 `state.accounts[...]`。最终 `state`(唯一可写源)的 deep watcher → 400ms debounce 整体 PUT。
+   - `src/App.vue` 是装配 shell,持有 `useAppState` 实例,把当前账户 `Ref` + `state` + `onStateChange` 注入 `useTrackingDashboard`。
+   - `src/composables/useAppState.ts` 拥有整个 `state`(唯一可写源)、`selectedAccount` / `selectedAccountId`(computed)、加载/保存状态、CRUD、400ms debounce 自动保存;持久化时用 `ignoreWatcher` 屏蔽服务端回填避免保存死循环。
+   - `src/composables/useTrackingDashboard.ts` 接收 `{ account, state, onStateChange }`,所有派生状态都是当前账户的;表单编辑经 `onStateChange` 写回账户 params。
+   - `src/composables/useActualEntryState.ts` 同样接收 `{ account, state, onStateChange, rows, getDefaultPrice }`,保存/清除调 `setAccountEntry` / `removeAccountEntry` 后经 `onStateChange` 回灌。
+   - `src/lib/trackingYearScope.ts` 决定年份视图切换时的计算截止日。
+   - `src/lib/trackingDisplay.ts` 提供金额/百分比/差额格式化(`formatMoney` / `formatRatio` / `deltaTagType` 等)。
+
+### 服务端写回
+
+`vite.config.ts` 中 `appStateApiPlugin` 在 `/api/state` 上挂中间件:
+- `GET` → 读取 `state.json`(若不存在则 seed 并写回)
+- `PUT` body `AppState` → 整体替换;`version !== 1` / 缺少 `selectedAccountId` / 空 accounts / selectedId 不在 accounts 中 → 返回 422。
+- 写入时刷新顶层 `updatedAt`。
+- 浏览器侧通过 `src/lib/stateApi.ts` 调用。
+
+### 默认模型参数
+
+```ts
+DEFAULT_PARAMS = {
+  startDate: '2026.06.15',
+  initialShares: 500,
+  initialCash: 1650.30,
+  price: 36.14,
+  spread: 1.2,
+  lotCost: 3614,        // 通常 = price * 100
+  hiddenTradingDays: 0,
+  endDate: <动态 = 2026 日历最后一日,即 TRADING_DATES_2026 末位>
+}
 ```
 
-`buildCoreTrackingRows()` runs `hiddenTradingDays` pre-iterations (not displayed), then maps over the date array.
+## Components
 
-### Data Flow
-
-1. **Calendar**: `data/calendar/*.json` (5 files, 2026–2030) → `src/data/sources.ts` merges into `ALL_TRADING_DATES` (sorted, deduplicated)
-2. **Legacy meta**: `data/tracking/*.meta.json` provides lightweight summaries (date range, row count) for display — the full tracking table JSON is not imported by the frontend to keep the bundle small
-3. **Tracking rows**: `src/lib/tracking.ts` calls the kernel with params + filtered dates → produces `TrackingRow[]`
-4. **Comparison**: `tracking.ts` also provides `buildComparisonRows()` which overlays actual entries onto target rows, computing deltas and progress
-5. **UI**: `src/App.vue` is a single-file Vue 3 component (~960 lines) wiring parameter form, range selection, actual-entry recording, and a 17-column data table
-
-### Server-Side Write-Back
-
-`vite.config.ts` contains `actualEntriesApiPlugin` — a middleware on `/api/actual-entries` supporting GET/POST/DELETE. It writes directly to `data/tracking/actual-entries.json`. Browser calls go through `src/lib/actualEntriesApi.ts`.
-
-### Python ↔ TypeScript Bridge
-
-`scripts/tracking_tool.py` delegates calculation to the TS kernel by shelling out to `npm run tracking:core -- compute`, piping JSON through stdin/stdout. This avoids duplicating the formula in Python.
-
-### Default Model Parameters
-
-Current baseline (aligned with `docs/dialog-tracking-draft.md` and `DEFAULT_PARAMS` in `tracking.ts`):
-- Initial shares: 2600, initial cash: 1376.18, fixed price: 40.20
-- Daily spread/share: 0.5, lot cost: 4020
-- Hidden pre-trading days: 0, start date: 2026.06.03
-
-The authoritative params source is `docs/dialog-tracking-draft.md`. When params change, update both the draft and `DEFAULT_PARAMS` in `src/lib/tracking.ts`.
+| 组件 | 职责 |
+| --- | --- |
+| `App.vue` | 装配 shell,创建 `useAppState` + `useTrackingDashboard` |
+| `TrackingAccountSwitcher.vue` | 顶部下拉切换账户 + "新建/管理"按钮 |
+| `TrackingAccountManager.vue` | el-dialog:列表 + 重命名 + 删除(最后 1 个不可删) |
+| `TrackingOverviewSection.vue` | 参数表单 + 3 张统计卡片 + 账户名 + 顶栏操作按钮 |
+| `TrackingActualPanel.vue` | 实盘录入表单 + 当前目标基准 + 保存状态 |
+| `TrackingTablePanel.vue` | 17 列对照表(目标 + 实盘 + 差额) |
 
 ## Key Reference Files
 
-- `docs/dialog-tracking-draft.md` — authoritative model params, rules, output format
-- `docs/project-status.md` — current project status and next steps (read first when resuming work)
-- `docs/baseline-refresh-playbook.md` — procedure for replacing base data and re-syncing params
-- `docs/2026-remaining-trading-dates.md` — valid trading dates after 2026.06.03
-- `data/calendar/*.json` — structured trading calendars (frontend reads these, not the Markdown)
-- `data/tracking/*.meta.json` — lightweight tracking table summaries (date range, row count)
+- `src/lib/trackingCore.ts` — 计算内核(权威)
+- `src/lib/accountState.ts` — 账户状态模型(权威)
+- `src/lib/stateApi.ts` — 浏览器侧 fetch 封装
+- `src/composables/useAppState.ts` — 顶层状态机
+- `src/composables/useTrackingDashboard.ts` — 账户作用域 dashboard
+- `tests/trackingCalendar.test.ts` — 日历准确性守卫
+- `tests/appState.test.ts` — 账户状态纯函数测试
+- `data/calendar/*.json` — 交易日权威源
+- `data/tracking/state.json` — 多账户状态持久化文件
+- `docs/project-status.md` — 当前项目状态与下一步
 
 ## Working Conventions
 
-- Respond in Chinese by default
-- Prefer minimal edits; avoid unrelated refactoring
-- Sync changes to both `docs/` and `data/` when affecting trading days, tables, or status
-- New structured data goes into `data/`, not Markdown
-- When resuming work: read `docs/project-status.md` → `README.md` → `git status --short`
-- Verify frontend changes with the running dev server; verify config changes with `npm run build`
-- Reuse existing dev server when possible; restart only when necessary
-- Do not fabricate trading dates — derive from `docs/` or `data/calendar/`
+- 默认中文回复。
+- 优先最小化修改,避免无关重构。
+- 新增结构化数据写入 `data/`,不要把 Markdown 当前端主数据源(`docs/` 仅保留项目状态)。
+- 重新打开项目时:先读 `docs/project-status.md`,再看 `git status --short`,再启 `npm run dev`(优先复用旧服务)。
+- 前端日常改动:依赖现有 `npm run dev` + 编辑器错误。
+- 修改 `vite.config.ts`、依赖、写回接口、目录结构后必须跑 `npm run build`。
+- 替换基础参数时:**必须**同步 `tests/trackingCore.test.ts` 与 `tests/tracking.test.ts` 里的基线样本值,否则 `npm test` 失败。
+- **不要臆造交易日**——所有日期来自 `data/calendar/*.json`。
+- 多账户隔离:`useTrackingDashboard` / `useActualEntryState` 都从 `account.value` 读,不要绕过它去读 `state.accounts[...]`。
+- 新增年度:把 JSON 放入 `data/calendar/` + 在 `src/data/sources.ts` 加 import。
 
 ## Tech Stack
 
-Vue 3.5 + Element Plus 2.14 (zh-CN locale) + Vite 8. Tests: Vitest 3.2. TypeScript 6 with strict checks (`noUnusedLocals`, `noUnusedParameters`, `erasableSyntaxOnly`).
+Vue 3.5 + Element Plus 2.14(zh-CN locale)+ Vite 8。测试 Vitest 3.2。TypeScript 6 with `noUnusedLocals` / `noUnusedParameters` / `erasableSyntaxOnly`。

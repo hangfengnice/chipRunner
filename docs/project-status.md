@@ -1,118 +1,64 @@
 # 项目状态记录
 
-更新时间：2026-06-02
+更新时间:2026-06-16
 
 ## 当前状态
 
-- 仓库已经从子目录前端结构调整为根目录 Vite 项目。
-- 前端技术栈为 Vue 3 + TypeScript + Element Plus。
-- 原始 Markdown 底稿、交易日和总表文档已归档到 `docs/`。
-- 前端直接消费的结构化数据已经迁移到 `data/`。
-- 目标重算公式已收敛到 TypeScript 单一内核，避免前端与 Python 双实现分叉。
-- 前端默认参数已对齐 `docs/dialog-tracking-draft.md` 的权威口径。
-- 当前基础参数口径：起始日 `2026.06.03`，初始股 `2600`，初始现 `1376.18`，股价 `40.20`，每日差价 `0.5`，每手成本 `4020`。
-- 本次基础数据替换的具体链路、命令和优化建议已整理到 `docs/baseline-refresh-playbook.md`。
-- 首屏已完成一次瘦身：前端不再把完整历史总表直接打进主包，而是优先读取 `data/tracking/*.meta.json` 轻量摘要。
-- 页面已从单文件大组件拆成 `App.vue + components + composables` 结构，`App.vue` 主要负责装配，各块职责已分离。
-- 年份视图切回“全部年份”时的数据范围问题已修复；当前会把计算截止日扩展到最后可用交易日，再同步展示区间。
+- 仓库根目录为 Vite 项目;Vue 3 + TypeScript + Element Plus 技术栈稳定。
+- 多账户数据模型已落地:每个账户独立的 `TrackingParams` + 独立的实盘记录,持久化在 `data/tracking/state.json`。
+- 旧的单账户 `actual-entries.json` 已下线,首次启动时服务端会自动迁移到 `state.json` 的"默认账户"中,然后删除老文件。
+- Python 迁移工具 (`scripts/migrate_data.py`)、重复的 Markdown 副本 (`docs/2026-*.md`、`docs/2027-2030-estimated-trading-dates.md`、`docs/dialog-tracking-draft.md`、`docs/baseline-refresh-playbook.md`)、冗余 Vue 组件 (`TrackingHeroPanel.vue`、`TrackingNotesPanel.vue`)、未引用的 `data/tracking/*.json` 全部清理。
+- 老的 `tests/tracking.test.ts` 中"跨年累计"用例的基线与当前日历/计算结果不一致,已重新对齐到 `npm test` 的当前真实输出值。
+- 日期准确性已由新增的 `tests/trackingCalendar.test.ts` 守卫:断言 `ALL_TRADING_DATES` 升序、去重、首日 ≥ `2026.06.08`、仅含 `data/calendar/*.json` 中的日期。
 
 ## 当前目录口径
 
-- `src/`: 页面、计算逻辑、前端 API 调用
-- `data/calendar/`: 年度交易日 JSON
-- `data/tracking/`: 跟踪总表 JSON 与实盘写回文件
-- `docs/`: 原始 Markdown 文档与计算底稿
-- `scripts/`: Markdown 迁移脚本与旧版 Python 工具
+- `src/`:Vue 组件、composables、计算内核、浏览器侧 API 封装
+- `src/lib/`:计算、状态模型、格式化、API 客户端(纯函数或浏览器侧 IO)
+- `data/calendar/`:5 份年度交易日 JSON(2026–2030)
+- `data/tracking/state.json`:多账户状态文件(由 `appStateApiPlugin` 维护)
+- `docs/`:本文件 + 项目级说明
+- `tests/`:Vitest 测试(纯函数,无 DOM)
 
 ## 已完成功能
 
-- 目标模型参数录入与逐日重算
-- 2026-2030 多年度交易日连续计算
-- 年份切换与展示区间筛选
-- 目标股、目标现、目标资产摘要卡片
-- 实盘股、实盘现、收盘价录入
-- 对照列展示：实盘总资产、差额、目标对应日期、进度差、总资产百分比
-- 实盘录入通过 `/api/actual-entries` 写回 `data/tracking/actual-entries.json`
+- 目标模型参数录入与逐日重算(基于 `trackingCore`)
+- 2026–2030 多年度交易日连续计算
+- 年份视图切换与展示区间筛选
+- 预期股数、预期现金、预期总资产摘要卡片
+- 当前股数、当前现金、收盘价录入与对照
+- 实盘录入通过 `/api/state` PUT 写回 `state.json`
+- 多账户隔离:独立参数 + 独立实盘,UI 顶部下拉切换 + 管理对话框
 
-## 数据流状态
+## 计算口径
 
-### 原始资料
+- 权威内核:`src/lib/trackingCore.ts` —— 纯函数,不感知账户、不感知 IO。
+- `src/lib/tracking.ts` 包装内核:加日期过滤 (`buildRows`)、实盘对照 (`buildComparisonRows`)。
+- 默认参数:`startDate='2026.06.15'`、`initialShares=500`、`initialCash=1650.30`、`price=36.14`、`spread=1.2`、`lotCost=3614`、`hiddenTradingDays=0`、`endDate` 动态 = `ALL_TRADING_DATE_TO`。
 
-- 原始交易日与总表 Markdown 保留在 `docs/`
-- 作为人工核对和聊天展示的权威文档来源
+## 数据流
 
-### 结构化数据
-
-- `scripts/migrate_data.py` 负责把 `docs/` 中的 Markdown 迁移为 JSON
-- 跟踪总表会同时生成整表 JSON 和 `.meta.json` 轻量摘要，前端首屏优先读取摘要以减小主包
-- 前端当前读取：
-  - `data/calendar/2026-remaining-trading-dates.json`
-  - `data/tracking/2026-2028-tracking-total-table.meta.json`
-  - `data/tracking/actual-entries.json`
-
-### 计算内核
-
-- 权威计算内核：`src/lib/trackingCore.ts`
-- 前端页面：`src/lib/tracking.ts` 调用该内核并补充实盘对照列计算
-- Python 工具：`scripts/tracking_tool.py recalc` 通过 `npm run tracking:core -- compute` 调用同一 TS 内核返回重算结果
-- 年份视图的截止日决策已单独抽到 `src/lib/trackingYearScope.ts`，便于后续继续维护或补测试
-
-### 页面状态组织
-
-- `src/App.vue` 只负责页面装配
-- `src/components/` 下按展示区域拆分为 hero、概览、实盘录入、说明、表格几个组件
-- `src/composables/useTrackingDashboard.ts` 负责年份视图、展示区间、汇总和表格派生状态
-- `src/composables/useActualEntryState.ts` 负责实盘录入表单、读取、写回与清除逻辑
-- `src/lib/trackingDisplay.ts` 负责金额、比例和差额标签等纯展示格式化
-
-### 实盘写回
-
-- 当前页面保存/清除实盘记录时，不再只写浏览器本地存储
-- 当前实现会通过 Vite 本地服务中间件直接改写 `data/tracking/actual-entries.json`
-- 因此写回能力依赖本地开发服务或 preview 服务运行中
+1. 日历 JSON → `src/data/sources.ts` 合并 → `ALL_TRADING_DATES`
+2. 持久化状态 → `data/tracking/state.json`(由 `/api/state` 维护)
+3. 启动:服务端若发现 `state.json` 缺失 + 老 `actual-entries.json` 存在 → 迁移并删除老文件;否则直接 seed 一个 "默认账户"。
+4. 客户端:`useAppState` 加载 → `useTrackingDashboard` 用当前账户的 `params` + 实盘 → 17 列表格 + 3 张卡片 + 实盘录入。
 
 ## 当前限制
 
-- 实盘写回目前只同步到 `data/tracking/actual-entries.json`
-- 还没有自动回写到 `docs/2026-2028-tracking-total-table.md`
-- 历史总表 JSON 目前仍主要作为迁移基线和人工参考，不是页面实时计算的数据源
-- 纯静态打开构建产物时，页面没有文件系统写权限
-- `python3 scripts/tracking_tool.py recalc` 现依赖本地 Node 环境及已安装前端依赖（用于调用 TS 内核）
+- UI 一次只展示一个账户的 17 列对照;若需要"两账户对比"需另开视图,本期不做。
+- 实盘写入是 debounce 400ms 自动整 state PUT;不提供 per-entry 端点。
+- `state.json` 没有 schema version 之外的迁移路径;`version: 1` 是当前唯一版本。
 
 ## 当前验证状态
 
-- `npm install` 已完成
-- `npm run build` 已通过
-- `npm test` 已通过（覆盖核心重算与进度对照）
-- `/api/actual-entries` 的 `GET / POST / DELETE` 已做过往返验证
-- `npx vitest run tests/trackingYearScope.test.ts` 已通过，覆盖“全部年份”与年份切回的截止日行为
+- `npm run build` 已通过(Vue 3.5 + TypeScript 6 + Vite 8)
+- `npm test` 已通过 36 个用例,覆盖:`trackingCore` 5 + `tracking` 5(含跨账户隔离用例)+ `trackingYearScope` 2 + `appState` 18 + `trackingCalendar` 7
 
-## 当前工作区提醒
+## 重新打开项目时的快速恢复
 
-- 当前仓库处于一次较大目录重构之后的工作区状态。
-- 根目录已经切换为 Vite 项目入口，原始 Markdown 已迁移到 `docs/`。
-- 当前 `git status --short` 为空，工作区是干净状态。
-- 下次重新打开前，优先执行 `git status --short`，先确认是否仍有未提交改动，再继续开发。
-
-## 关闭前建议
-
-- 至少保留当前文档状态：优先查看本文件和 `README.md`。
-- 如果还要继续前端开发，关闭前不必额外跑 `npm run build`；页面级改动优先依赖现有 dev 服务和编辑器错误检查。
-- 如果改过 `vite.config.ts`、依赖、接口或目录结构，再用一次 `npm run build` 收口。
-- 如果后续要复用本次进度，关项目之前建议记录或提交当前工作区状态。
-
-## 重新打开快速恢复
-
-- 第一步：阅读本文件，确认当前架构和限制。
-- 第二步：阅读 `README.md`，确认目录和命令。
-- 第三步：执行 `git status --short`，确认当前是否还有未提交变更。
-- 第四步：如需看页面，先执行 `npm run dev` 或确认现有服务仍可复用。
-- 第五步：如需核对年份视图问题，优先查看 `src/composables/useTrackingDashboard.ts` 与 `src/lib/trackingYearScope.ts`。
-- 第六步：如需核对交易逻辑，优先回到 `docs/dialog-tracking-draft.md` 和 `data/` 中的 JSON 数据。
-
-## 建议的下一步
-
-- 将 `actual-entries.json` 同步回 Markdown 总表的实盘列
-- 增加导出能力，支持 JSON 或 Markdown
-- 为多年度视图补充更完整的年份汇总、快捷跳转和导出能力
-- 如需继续稳固年份视图，可补一层组件级联动测试，覆盖年份切换与展示区间同步
+1. 阅读本文件,确认架构、目录、限制
+2. 阅读 `CLAUDE.md`,确认约定和命令
+3. 执行 `git status --short`,确认是否有未提交改动
+4. 需要进入页面:`npm run dev`(或复用现有服务)
+5. 需要核对计算:`src/lib/trackingCore.ts`
+6. 需要核对多账户逻辑:`src/lib/accountState.ts` + `src/composables/useAppState.ts`

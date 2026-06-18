@@ -8,6 +8,7 @@ import {
 } from './trackingCore'
 
 export interface TrackingParams {
+  startDate: string
   initialShares: number
   initialCash: number
   price: number
@@ -50,11 +51,12 @@ export interface TrackingComparisonRow extends TrackingRow {
 export const syncLotCostFromPrice = (price: number) => roundMoney(price * 100)
 
 export const DEFAULT_PARAMS: TrackingParams = {
-  initialShares: 2600,
-  initialCash: 1376.18,
-  price: 40.2,
-  spread: 0.5,
-  lotCost: 4020,
+  startDate: '2026.06.15',
+  initialShares: 500,
+  initialCash: 1650.3,
+  price: 36.14,
+  spread: 1.2,
+  lotCost: 3614,
   hiddenTradingDays: 0,
   endDate: TRADING_DATES_2026[TRADING_DATES_2026.length - 1] ?? '2026.12.31',
 }
@@ -63,7 +65,9 @@ export function buildRows(
   params: TrackingParams,
   sourceDates: readonly string[] = ALL_TRADING_DATES,
 ): TrackingRow[] {
-  const dates = sourceDates.filter((date) => date <= params.endDate)
+  const dates = sourceDates.filter(
+    (date) => date >= params.startDate && date <= params.endDate,
+  )
   const coreParams: CoreTrackingParams = {
     initialShares: params.initialShares,
     initialCash: params.initialCash,

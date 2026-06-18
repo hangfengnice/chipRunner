@@ -4,16 +4,18 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type PreviewServer, type ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { createSeedState } from './src/lib/accountState'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const actualEntriesFile = path.resolve(
+const stateFile = path.resolve(__dirname, 'data/tracking/state.json')
+const legacyActualEntriesFile = path.resolve(
   __dirname,
   'data/tracking/actual-entries.json',
 )
 
-interface ActualEntriesPayload {
-  updatedAt: string | null
-  entries: Record<
+interface LegacyActualEntries {
+  updatedAt?: string
+  entries?: Record<
     string,
     {
       date: string
@@ -24,35 +26,26 @@ interface ActualEntriesPayload {
   >
 }
 
-const defaultPayload: ActualEntriesPayload = {
-  updatedAt: null,
-  entries: {},
+interface RawState {
+  version?: number
+  selectedAccountId?: string
+  accounts?: unknown
+  updatedAt?: string
 }
 
-const readActualEntriesFile = async (): Promise<ActualEntriesPayload> => {
+const readJson = async (filePath: string): Promise<unknown | null> => {
   try {
-    const raw = await fs.readFile(actualEntriesFile, 'utf-8')
-    const parsed = JSON.parse(raw) as Partial<ActualEntriesPayload>
-
-    return {
-      updatedAt:
-        typeof parsed.updatedAt === 'string' || parsed.updatedAt === null
-          ? parsed.updatedAt
-          : null,
-      entries:
-        parsed.entries && typeof parsed.entries === 'object'
-          ? parsed.entries
-          : {},
-    }
+    const raw = await fs.readFile(filePath, 'utf-8')
+    return JSON.parse(raw) as unknown
   } catch {
-    return { ...defaultPayload }
+    return null
   }
 }
 
-const writeActualEntriesFile = async (payload: ActualEntriesPayload) => {
-  await fs.mkdir(path.dirname(actualEntriesFile), { recursive: true })
+const writeJson = async (filePath: string, payload: unknown) => {
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
   await fs.writeFile(
-    actualEntriesFile,
+    filePath,
     `${JSON.stringify(payload, null, 2)}\n`,
     'utf-8',
   )
@@ -79,6 +72,58 @@ const sendJson = (
   res.end(JSON.stringify(payload))
 }
 
+const isAccountLike = (
+  value: unknown,
+): value is Record<string, unknown> => {
+  if (!value || typeof value !== 'object') return false
+  const obj = value as Record<string, unknown>
+  return (
+    typeof obj.id === 'string' &&
+    typeof obj.name === 'string' &&
+    typeof obj.params === 'object' &&
+    obj.params !== null &&
+    typeof obj.actualEntries === 'object' &&
+    obj.actualEntries !== null
+  )
+}
+
+const validateState = (
+  value: unknown,
+):
+  | { ok: true; state: RawState }
+  | { ok: false; message: string } => {
+  if (!value || typeof value !== 'object') {
+    return { ok: false, message: 'state 必须是对象' }
+  }
+  const candidate = value as RawState
+  if (candidate.version !== 1) {
+    return { ok: false, message: 'state.version 必须等于 1' }
+  }
+  if (typeof candidate.selectedAccountId !== 'string') {
+    return { ok: false, message: 'state.selectedAccountId 必须是字符串' }
+  }
+  if (!candidate.accounts || typeof candidate.accounts !== 'object') {
+    return { ok: false, message: 'state.accounts 必须是对象' }
+  }
+  const accounts = candidate.accounts as Record<string, unknown>
+  const accountIds = Object.keys(accounts)
+  if (accountIds.length === 0) {
+    return { ok: false, message: 'state.accounts 不能为空' }
+  }
+  for (const id of accountIds) {
+    if (!isAccountLike(accounts[id])) {
+      return { ok: false, message: `账户 ${id} 字段不完整` }
+    }
+  }
+  if (!accounts[candidate.selectedAccountId]) {
+    return {
+      ok: false,
+      message: 'state.selectedAccountId 必须在 accounts 中存在',
+    }
+  }
+  return { ok: true, state: candidate }
+}
+
 interface MiddlewareStack {
   use: (
     path: string,
@@ -89,71 +134,46 @@ interface MiddlewareStack {
   ) => void
 }
 
-const applyActualEntriesApi = (middlewares: MiddlewareStack) => {
-  middlewares.use('/api/actual-entries', async (req, res) => {
+const seedFromLegacy = async () => {
+  const legacy = await readJson(legacyActualEntriesFile)
+  if (legacy && typeof legacy === 'object') {
+    const entries = (legacy as LegacyActualEntries).entries ?? {}
+    try {
+      await fs.unlink(legacyActualEntriesFile)
+    } catch {
+      // ignore: file may not exist or already removed
+    }
+    return createSeedState({ legacyEntries: entries })
+  }
+  return createSeedState()
+}
+
+const applyAppStateApi = (middlewares: MiddlewareStack) => {
+  middlewares.use('/api/state', async (req, res) => {
     try {
       if (req.method === 'GET') {
-        sendJson(res, 200, await readActualEntriesFile())
+        let current = await readJson(stateFile)
+        if (current === null) {
+          current = await seedFromLegacy()
+          await writeJson(stateFile, current)
+        }
+        sendJson(res, 200, current)
         return
       }
 
-      if (req.method === 'POST') {
-        const payload = await readJsonBody<{
-          date: string
-          actualShares: number
-          actualCash: number
-          closePrice: number
-        }>(req)
-
-        if (
-          !payload.date ||
-          !Number.isFinite(payload.actualShares) ||
-          !Number.isFinite(payload.actualCash) ||
-          !Number.isFinite(payload.closePrice)
-        ) {
-          sendJson(res, 400, { message: '实盘记录参数不完整' })
+      if (req.method === 'PUT') {
+        const body = await readJsonBody<unknown>(req)
+        const validation = validateState(body)
+        if (!validation.ok) {
+          sendJson(res, 422, { message: validation.message })
           return
         }
-
-        const current = await readActualEntriesFile()
-        const next: ActualEntriesPayload = {
+        const nextState = {
+          ...validation.state,
           updatedAt: new Date().toISOString(),
-          entries: {
-            ...current.entries,
-            [payload.date]: {
-              date: payload.date,
-              actualShares: Math.trunc(payload.actualShares),
-              actualCash: Number(payload.actualCash.toFixed(2)),
-              closePrice: Number(payload.closePrice.toFixed(2)),
-            },
-          },
         }
-
-        await writeActualEntriesFile(next)
-        sendJson(res, 200, next)
-        return
-      }
-
-      if (req.method === 'DELETE') {
-        const requestUrl = new URL(req.url ?? '', 'http://localhost')
-        const date = requestUrl.searchParams.get('date') ?? ''
-
-        if (!date) {
-          sendJson(res, 400, { message: '缺少 date 参数' })
-          return
-        }
-
-        const current = await readActualEntriesFile()
-        const nextEntries = { ...current.entries }
-        delete nextEntries[date]
-
-        const next: ActualEntriesPayload = {
-          updatedAt: new Date().toISOString(),
-          entries: nextEntries,
-        }
-
-        await writeActualEntriesFile(next)
-        sendJson(res, 200, next)
+        await writeJson(stateFile, nextState)
+        sendJson(res, 200, nextState)
         return
       }
 
@@ -165,17 +185,17 @@ const applyActualEntriesApi = (middlewares: MiddlewareStack) => {
   })
 }
 
-const actualEntriesApiPlugin = () => ({
-  name: 'actual-entries-api',
+const appStateApiPlugin = () => ({
+  name: 'app-state-api',
   configureServer(server: ViteDevServer) {
-    applyActualEntriesApi(server.middlewares)
+    applyAppStateApi(server.middlewares)
   },
   configurePreviewServer(server: PreviewServer) {
-    applyActualEntriesApi(server.middlewares)
+    applyAppStateApi(server.middlewares)
   },
 })
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue(), actualEntriesApiPlugin()],
+  plugins: [vue(), appStateApiPlugin()],
 })

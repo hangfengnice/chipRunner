@@ -1,19 +1,12 @@
 import { ElMessage } from 'element-plus'
+import { computed, reactive, watch, type ComputedRef, type Ref } from 'vue'
 import {
-  computed,
-  onMounted,
-  reactive,
-  ref,
-  watch,
-  type ComputedRef,
-} from 'vue'
-import {
-  type ActualEntriesPayload,
-  deleteActualEntryFromFile,
-  fetchActualEntries,
-  saveActualEntryToFile,
-} from '../lib/actualEntriesApi'
-import { type ActualPositionEntry, type TrackingRow } from '../lib/tracking'
+  removeAccountEntry,
+  setAccountEntry,
+  type Account,
+  type AppState,
+} from '../lib/accountState'
+import type { ActualPositionEntry, TrackingRow } from '../lib/tracking'
 
 export interface ActualEntryDraft {
   date: string
@@ -23,7 +16,9 @@ export interface ActualEntryDraft {
 }
 
 interface UseActualEntryStateOptions {
-  availableDateFrom: string
+  account: Ref<Account | undefined>
+  state: Ref<AppState>
+  onStateChange: (next: AppState) => void
   rows: ComputedRef<TrackingRow[]>
   getDefaultPrice: () => number
 }
@@ -31,24 +26,37 @@ interface UseActualEntryStateOptions {
 const roundMoney = (value: number) => Number(value.toFixed(2))
 const normalizeShares = (value: number) => Math.trunc(value)
 
+const resolvePreferredEntryDate = (
+  dates: readonly string[],
+  fallback: string,
+) => {
+  if (!dates.length) return fallback
+  return [...dates].sort()[0] ?? fallback
+}
+
 export function useActualEntryState(options: UseActualEntryStateOptions) {
-  const actualEntries = ref<Record<string, ActualPositionEntry>>({})
+  const { account, state, onStateChange, rows, getDefaultPrice } = options
+
   const actualEntryForm = reactive<ActualEntryDraft>({
-    date: options.availableDateFrom,
+    date: account.value?.params.startDate ?? '2026.06.15',
     actualShares: null,
     actualCash: null,
-    closePrice: options.getDefaultPrice(),
+    closePrice: getDefaultPrice(),
   })
-  const actualEntriesUpdatedAt = ref<string | null>(null)
-  const isLoadingActualEntries = ref(false)
-  const isSavingActualEntry = ref(false)
+
+  const actualEntries = computed<Record<string, ActualPositionEntry>>(
+    () => account.value?.actualEntries ?? {},
+  )
 
   const savedEntryCount = computed(
     () => Object.keys(actualEntries.value).length,
   )
-  const hasSavedActualEntry = computed(() =>
-    Boolean(actualEntries.value[actualEntryForm.date]),
-  )
+
+  const hasSavedActualEntry = computed(() => {
+    const date = actualEntryForm.date
+    if (!date) return false
+    return Boolean(actualEntries.value[date])
+  })
 
   const hydrateActualEntryForm = (date: string) => {
     const saved = actualEntries.value[date]
@@ -59,68 +67,48 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       return
     }
 
-    const targetRow = options.rows.value.find((row) => row.date === date)
+    const targetRow = rows.value.find((row) => row.date === date)
     actualEntryForm.actualShares = targetRow?.targetShares ?? null
     actualEntryForm.actualCash = null
-    actualEntryForm.closePrice = options.getDefaultPrice()
+    actualEntryForm.closePrice = getDefaultPrice()
   }
 
+  // When the active account changes, switch the form to its earliest entry date.
+  let previousAccountId: string | undefined = account.value?.id
   watch(
-    options.rows,
-    (nextRows) => {
-      if (!nextRows.length) {
-        return
-      }
-
-      if (!nextRows.some((row) => row.date === actualEntryForm.date)) {
-        actualEntryForm.date = nextRows[nextRows.length - 1].date
-      }
+    () => account.value?.id,
+    (id) => {
+      if (id === previousAccountId) return
+      previousAccountId = id
+      const entries = Object.keys(actualEntries.value)
+      const firstRow = rows.value[0]
+      const fallback = firstRow?.date ?? '2026.06.15'
+      actualEntryForm.date = resolvePreferredEntryDate(
+        entries.length > 0 ? entries : [fallback],
+        fallback,
+      )
+      hydrateActualEntryForm(actualEntryForm.date)
     },
     { immediate: true },
   )
 
+  // When the form date changes manually, hydrate the entry fields.
   watch(
     () => actualEntryForm.date,
     (date) => {
-      if (!date) {
-        return
-      }
-
+      if (!date) return
       hydrateActualEntryForm(date)
     },
-    { immediate: true },
   )
 
-  const syncActualEntriesFromPayload = (
-    entries: Record<string, ActualPositionEntry>,
-    updatedAt: string | null,
-  ) => {
-    actualEntries.value = entries
-    actualEntriesUpdatedAt.value = updatedAt
-    hydrateActualEntryForm(actualEntryForm.date)
-  }
-
-  const loadActualEntries = async () => {
-    isLoadingActualEntries.value = true
-
-    try {
-      const payload = await fetchActualEntries()
-      syncActualEntriesFromPayload(payload.entries, payload.updatedAt)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : '实盘记录读取失败'
-      ElMessage.error(message)
-    } finally {
-      isLoadingActualEntries.value = false
-    }
-  }
-
-  onMounted(() => {
-    void loadActualEntries()
-  })
-
   const saveActualEntry = () => {
-    if (!options.rows.value.some((row) => row.date === actualEntryForm.date)) {
+    const target = account.value
+    if (!target) {
+      ElMessage.warning('当前没有选中账户')
+      return
+    }
+
+    if (!rows.value.some((row) => row.date === actualEntryForm.date)) {
       ElMessage.warning('当前录入日期不在计算区间内，请先调整截止日期')
       return
     }
@@ -130,64 +118,40 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       actualEntryForm.actualCash === null ||
       actualEntryForm.closePrice === null
     ) {
-      ElMessage.warning('请完整录入实盘股、实盘现和收盘价后再保存')
+      ElMessage.warning('请完整录入当前股数、当前现金和收盘价后再保存')
       return
     }
 
-    isSavingActualEntry.value = true
-
-    void saveActualEntryToFile({
+    const entry: ActualPositionEntry = {
       date: actualEntryForm.date,
       actualShares: normalizeShares(actualEntryForm.actualShares),
       actualCash: roundMoney(actualEntryForm.actualCash),
       closePrice: roundMoney(actualEntryForm.closePrice),
-    })
-      .then((payload: ActualEntriesPayload) => {
-        syncActualEntriesFromPayload(payload.entries, payload.updatedAt)
-        ElMessage.success(`已写回 ${actualEntryForm.date} 的实盘记录`)
-      })
-      .catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : '实盘记录写回失败'
-        ElMessage.error(message)
-      })
-      .finally(() => {
-        isSavingActualEntry.value = false
-      })
+    }
+
+    onStateChange(setAccountEntry(state.value, target.id, entry))
+    ElMessage.success(`已写回 ${actualEntryForm.date} 的实盘记录`)
   }
 
   const clearActualEntry = () => {
+    const target = account.value
+    if (!target) return
+
     if (!actualEntries.value[actualEntryForm.date]) {
       ElMessage.info('当前日期还没有已写回的实盘记录')
       return
     }
 
-    isSavingActualEntry.value = true
-
-    void deleteActualEntryFromFile(actualEntryForm.date)
-      .then((payload: ActualEntriesPayload) => {
-        syncActualEntriesFromPayload(payload.entries, payload.updatedAt)
-        ElMessage.success(`已清除 ${actualEntryForm.date} 的实盘记录`)
-      })
-      .catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : '实盘记录清除失败'
-        ElMessage.error(message)
-      })
-      .finally(() => {
-        isSavingActualEntry.value = false
-      })
+    onStateChange(
+      removeAccountEntry(state.value, target.id, actualEntryForm.date),
+    )
+    ElMessage.success(`已清除 ${actualEntryForm.date} 的实盘记录`)
   }
 
   return {
-    actualEntries,
-    actualEntriesUpdatedAt,
     actualEntryForm,
     clearActualEntry,
     hasSavedActualEntry,
-    isLoadingActualEntries,
-    isSavingActualEntry,
-    loadActualEntries,
     saveActualEntry,
     savedEntryCount,
   }

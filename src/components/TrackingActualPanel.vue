@@ -3,7 +3,8 @@ import type { ActualEntryDraft } from '../composables/useActualEntryState'
 import type { TrackingComparisonRow } from '../lib/tracking'
 import { formatOptionalMoney } from '../lib/trackingDisplay'
 
-defineProps<{
+const props = defineProps<{
+  accountName: string
   actualEntryForm: ActualEntryDraft
   selectedComparisonRow: TrackingComparisonRow | null
   savedEntryCount: number
@@ -16,9 +17,10 @@ defineProps<{
 
 const emit = defineEmits<{
   clear: []
-  reload: []
   save: []
 }>()
+
+void props
 </script>
 
 <template>
@@ -27,8 +29,8 @@ const emit = defineEmits<{
       <div class="panel-title">
         <span>实盘录入</span>
         <small>
-          录入后点击保存，会通过当前开发服务直接写回
-          data/tracking/actual-entries.json 并参与下方对照计算。
+          当前账户:<strong>{{ accountName }}</strong> · 录入后点击保存，会通过当前开发服务直接写回
+          data/tracking/state.json 并参与下方对照计算。
         </small>
       </div>
     </template>
@@ -46,7 +48,7 @@ const emit = defineEmits<{
           />
         </el-form-item>
 
-        <el-form-item label="实盘股">
+        <el-form-item label="当前股数">
           <el-input-number
             v-model="actualEntryForm.actualShares"
             :min="0"
@@ -55,7 +57,7 @@ const emit = defineEmits<{
           />
         </el-form-item>
 
-        <el-form-item label="实盘现">
+        <el-form-item label="当前现金">
           <el-input-number
             v-model="actualEntryForm.actualCash"
             :min="0"
@@ -86,9 +88,6 @@ const emit = defineEmits<{
           <el-button :disabled="isSavingActualEntry" @click="emit('clear')">
             清除当前记录
           </el-button>
-          <el-button :loading="isLoadingActualEntries" @click="emit('reload')">
-            重新读取文件
-          </el-button>
         </div>
       </el-form>
 
@@ -96,11 +95,11 @@ const emit = defineEmits<{
         <div class="snapshot-card">
           <span class="note-title">当前目标基准</span>
           <p>
-            目标股
+            预期股数
             <strong>{{ selectedComparisonRow?.targetShares ?? '--' }}</strong>
           </p>
           <p>
-            目标现
+            预期现金
             <strong>
               {{
                 formatOptionalMoney(selectedComparisonRow?.targetCash ?? null)
@@ -108,7 +107,7 @@ const emit = defineEmits<{
             </strong>
           </p>
           <p>
-            目标资产
+            预期总资产
             <strong>
               {{
                 formatOptionalMoney(selectedComparisonRow?.targetAssets ?? null)
@@ -135,8 +134,7 @@ const emit = defineEmits<{
             }}
           </p>
           <p>
-            只要当前开发服务在运行，页面保存和清除都会直接改写仓库里的 JSON
-            文件。
+            只要当前开发服务在运行，页面保存和清除都会直接改写仓库里的 state.json。
           </p>
         </div>
       </div>

@@ -3,7 +3,6 @@ import calendar2027 from '../../data/calendar/2027-estimated-trading-dates.json'
 import calendar2028 from '../../data/calendar/2028-estimated-trading-dates.json'
 import calendar2029 from '../../data/calendar/2029-estimated-trading-dates.json'
 import calendar2030 from '../../data/calendar/2030-estimated-trading-dates.json'
-import legacyTracking20262028Meta from '../../data/tracking/2026-2028-tracking-total-table.meta.json'
 
 export interface CalendarRow {
   index: number
@@ -22,13 +21,6 @@ export interface CalendarYearData {
   dates: string[]
   months: Record<string, string[]>
   rows: CalendarRow[]
-}
-
-export interface TrackingTableMeta {
-  sourceFile: string
-  dateFrom: string
-  dateTo: string
-  rowCount: number
 }
 
 const normalizeUniqueSortedDates = (dates: string[]) =>
@@ -51,9 +43,6 @@ export const CALENDAR_YEARS: CalendarYearData[] = [
 export const CALENDAR_BY_YEAR = new Map(
   CALENDAR_YEARS.map((calendar) => [calendar.year, calendar]),
 )
-
-export const LEGACY_TRACKING_2026_2028_META =
-  legacyTracking20262028Meta as TrackingTableMeta
 
 export const TRADING_DATES_2026 = CALENDAR_2026.dates
 export const ALL_TRADING_DATES = normalizeUniqueSortedDates(

@@ -84,7 +84,7 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
       </el-table-column>
       <el-table-column
         prop="targetShares"
-        label="目标股"
+        label="预期股数"
         min-width="110"
         align="right"
       />
@@ -93,13 +93,13 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
           {{ formatMoney(scope.row.tProfit) }}
         </template>
       </el-table-column>
-      <el-table-column label="目标现" min-width="128" align="right">
+      <el-table-column label="预期现金" min-width="128" align="right">
         <template #default="scope">
           {{ formatMoney(scope.row.targetCash) }}
         </template>
       </el-table-column>
       <el-table-column
-        label="目标资产"
+        label="预期总资产"
         min-width="150"
         align="right"
         class-name="target-assets-column"
@@ -109,12 +109,12 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
           {{ formatMoney(scope.row.targetAssets) }}
         </template>
       </el-table-column>
-      <el-table-column label="实盘股" min-width="110" align="right">
+      <el-table-column label="当前股数" min-width="110" align="right">
         <template #default="scope">
           {{ formatOptionalCount(scope.row.actualShares) }}
         </template>
       </el-table-column>
-      <el-table-column label="实盘现" min-width="128" align="right">
+      <el-table-column label="当前现金" min-width="128" align="right">
         <template #default="scope">
           {{ formatOptionalMoney(scope.row.actualCash) }}
         </template>
@@ -131,7 +131,7 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
           {{ formatOptionalMoney(scope.row.closePrice) }}
         </template>
       </el-table-column>
-      <el-table-column label="实盘总资产" min-width="150" align="right">
+      <el-table-column label="当前总资产" min-width="150" align="right">
         <template #default="scope">
           {{ formatOptionalMoney(scope.row.actualTotalAssets) }}
         </template>

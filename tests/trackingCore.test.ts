@@ -7,25 +7,25 @@ import {
 } from '../src/lib/trackingCore'
 
 const BASE_PARAMS: CoreTrackingParams = {
-  initialShares: 2600,
-  initialCash: 1376.18,
-  price: 40.2,
-  spread: 0.5,
-  lotCost: 4020,
+  initialShares: 500,
+  initialCash: 1650.3,
+  price: 36.14,
+  spread: 1.2,
+  lotCost: 3614,
   hiddenTradingDays: 0,
 }
 
 const BASE_DATES = [
-  '2026.06.03',
-  '2026.06.04',
-  '2026.06.05',
-  '2026.06.08',
-  '2026.06.09',
-  '2026.06.10',
-  '2026.06.11',
-  '2026.06.12',
   '2026.06.15',
   '2026.06.16',
+  '2026.06.17',
+  '2026.06.18',
+  '2026.06.22',
+  '2026.06.23',
+  '2026.06.24',
+  '2026.06.25',
+  '2026.06.26',
+  '2026.06.29',
 ]
 
 describe('buildCoreTrackingRows', () => {
@@ -35,20 +35,20 @@ describe('buildCoreTrackingRows', () => {
     expect(rows).toHaveLength(BASE_DATES.length)
     expect(rows[0]).toMatchObject({
       index: 1,
-      date: '2026.06.03',
-      targetShares: 2600,
-      tProfit: 1300,
-      targetCash: 2676.18,
-      targetAssets: 107196.18,
+      date: '2026.06.15',
+      targetShares: 500,
+      tProfit: 600,
+      targetCash: 2250.3,
+      targetAssets: 20320.3,
       lotsBought: 0,
     })
 
     expect(rows[9]).toMatchObject({
-      date: '2026.06.16',
-      targetShares: 2900,
-      tProfit: 1450,
-      targetCash: 2966.18,
-      targetAssets: 119546.18,
+      date: '2026.06.29',
+      targetShares: 700,
+      tProfit: 840,
+      targetCash: 1262.3,
+      targetAssets: 26560.3,
       lotsBought: 0,
     })
   })
