@@ -33,12 +33,15 @@ export interface ActualPositionEntry {
   actualShares: number
   actualCash: number
   closePrice: number
+  dailyCashGained?: number | null
 }
 
 export interface TrackingComparisonRow extends TrackingRow {
   actualShares: number | null
   actualCash: number | null
   cashDelta: number | null
+  dailyCashGained: number | null
+  cumulativeCashGained: number
   closePrice: number | null
   actualTotalAssets: number | null
   shareDiff: number | null
@@ -85,9 +88,14 @@ export function buildComparisonRows(
   actualEntries: Record<string, ActualPositionEntry>,
 ): TrackingComparisonRow[] {
   const lastDate = rows[rows.length - 1]?.date ?? ''
+  let cumulativeCashGained = 0
 
   return rows.map((row, currentIndex) => {
     const entry = actualEntries[row.date]
+    const dailyGain = entry?.dailyCashGained ?? null
+    if (dailyGain !== null) {
+      cumulativeCashGained = roundMoney(cumulativeCashGained + dailyGain)
+    }
 
     if (!entry) {
       return {
@@ -95,6 +103,8 @@ export function buildComparisonRows(
         actualShares: null,
         actualCash: null,
         cashDelta: null,
+        dailyCashGained: null,
+        cumulativeCashGained,
         closePrice: null,
         actualTotalAssets: null,
         shareDiff: null,
@@ -115,6 +125,8 @@ export function buildComparisonRows(
       actualShares: entry.actualShares,
       actualCash: entry.actualCash,
       cashDelta: roundMoney(entry.actualCash - row.targetCash),
+      dailyCashGained: dailyGain,
+      cumulativeCashGained,
       closePrice: entry.closePrice,
       actualTotalAssets,
       shareDiff: entry.actualShares - row.targetShares,

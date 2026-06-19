@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import TrackingAccountManager from './components/TrackingAccountManager.vue'
-import TrackingAccountSwitcher from './components/TrackingAccountSwitcher.vue'
+import { onMounted } from 'vue'
 import TrackingActualPanel from './components/TrackingActualPanel.vue'
 import TrackingOverviewSection from './components/TrackingOverviewSection.vue'
 import TrackingTablePanel from './components/TrackingTablePanel.vue'
@@ -9,17 +7,11 @@ import { useAppState } from './composables/useAppState'
 import { useTrackingDashboard } from './composables/useTrackingDashboard'
 
 const {
-  accounts,
   isLoading,
   isSaving,
   lastSavedAt,
   load,
-  remove,
-  rename,
-  createNewAccount,
-  selectAccount,
   selectedAccount,
-  selectedAccountId,
   state,
   updateState,
 } = useAppState()
@@ -54,21 +46,6 @@ const {
   onStateChange: updateState,
 })
 
-const managerVisible = ref(false)
-
-const openManager = () => {
-  managerVisible.value = true
-}
-
-const closeManager = () => {
-  managerVisible.value = false
-}
-
-const handleCreateFromManager = () => {
-  createNewAccount()
-  closeManager()
-}
-
 onMounted(() => {
   void load()
 })
@@ -82,16 +59,9 @@ onMounted(() => {
         <h1>{{ titleYearRange }} Tracking Console</h1>
         <p>
           用 Vue3 + Element Plus
-          把跟踪模型做成一个最小可用界面,支持多账户隔离、参数实时重算、年份切换与展示区间筛选。
+          把跟踪模型做成一个最小可用界面,支持参数实时重算、年份切换与展示区间筛选。
         </p>
       </div>
-      <TrackingAccountSwitcher
-        :model-value="selectedAccountId"
-        :accounts="accounts"
-        @update:model-value="selectAccount"
-        @create="createNewAccount()"
-        @manage="openManager"
-      />
     </header>
 
     <TrackingOverviewSection
@@ -132,16 +102,6 @@ onMounted(() => {
       :end-date="form.endDate"
       :show-recent-only="showRecentOnly"
       @update:show-recent-only="(value: boolean) => (showRecentOnly = value)"
-    />
-
-    <TrackingAccountManager
-      v-model="managerVisible"
-      :accounts="accounts"
-      :selected-account-id="selectedAccountId"
-      @create="handleCreateFromManager"
-      @rename="rename"
-      @remove="remove"
-      @select="selectAccount"
     />
   </div>
 </template>

@@ -119,11 +119,14 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
           {{ formatOptionalMoney(scope.row.actualCash) }}
         </template>
       </el-table-column>
-      <el-table-column label="做T差额" min-width="132" align="center">
+      <el-table-column label="当天实际获取现金" min-width="150" align="right">
         <template #default="scope">
-          <el-tag :type="deltaTagType(scope.row.cashDelta)" effect="light">
-            {{ formatSignedMoney(scope.row.cashDelta) }}
-          </el-tag>
+          {{ formatOptionalMoney(scope.row.dailyCashGained) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="累计获取现金" min-width="140" align="right">
+        <template #default="scope">
+          {{ formatMoney(scope.row.cumulativeCashGained) }}
         </template>
       </el-table-column>
       <el-table-column label="收盘价" min-width="112" align="right">

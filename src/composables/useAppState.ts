@@ -1,12 +1,8 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
-  createAccount,
   createSeedState,
-  deleteAccount,
   getSelectedAccount,
-  renameAccount,
-  selectAccount as selectAccountPure,
   type Account,
   type AppState,
 } from '../lib/accountState'
@@ -37,14 +33,6 @@ export function useAppState(options: UseAppStateOptions = {}) {
     getSelectedAccount(state.value),
   )
 
-  const selectedAccountId = computed<string>(() => state.value.selectedAccountId)
-
-  const accounts = computed<Account[]>(() =>
-    Object.values(state.value.accounts).sort((a, b) =>
-      a.name.localeCompare(b.name, 'zh-Hans-CN'),
-    ),
-  )
-
   const load = async () => {
     if (isLoading.value) return
     isLoading.value = true
@@ -64,34 +52,6 @@ export function useAppState(options: UseAppStateOptions = {}) {
     } finally {
       isLoading.value = false
     }
-  }
-
-  const selectAccount = (id: string) => {
-    const next = selectAccountPure(state.value, id)
-    if (next !== state.value) {
-      state.value = next
-    }
-  }
-
-  const createNewAccount = (name?: string) => {
-    state.value = createAccount(state.value, name)
-  }
-
-  const rename = (id: string, name: string) => {
-    const next = renameAccount(state.value, id, name)
-    if (next !== state.value) {
-      state.value = next
-    }
-  }
-
-  const remove = (id: string) => {
-    const before = state.value
-    const next = deleteAccount(state.value, id)
-    if (next === before) {
-      ElMessage.warning('至少需要保留一个账户')
-      return
-    }
-    state.value = next
   }
 
   // Auto-save with debounce.
@@ -144,19 +104,13 @@ export function useAppState(options: UseAppStateOptions = {}) {
 
   return {
     state,
-    accounts,
     selectedAccount,
-    selectedAccountId,
     isLoading,
     isSaving,
     lastSaveError,
     lastSavedAt,
     hasLoaded,
     load,
-    selectAccount,
-    createNewAccount,
-    rename,
-    remove,
     updateState,
   }
 }

@@ -18,6 +18,7 @@ export interface ActualEntryDraft {
   actualShares: number | null
   actualCash: number | null
   closePrice: number | null
+  dailyCashGained: number | null
 }
 
 interface UseActualEntryStateOptions {
@@ -46,6 +47,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
     actualShares: null,
     actualCash: null,
     closePrice: getDefaultPrice(),
+    dailyCashGained: null,
   })
 
   const actualEntries = computed<Record<string, ActualPositionEntry>>(
@@ -68,6 +70,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       actualEntryForm.actualShares = saved.actualShares
       actualEntryForm.actualCash = saved.actualCash
       actualEntryForm.closePrice = saved.closePrice
+      actualEntryForm.dailyCashGained = saved.dailyCashGained ?? null
       return
     }
 
@@ -75,6 +78,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
     actualEntryForm.actualShares = targetRow?.targetShares ?? null
     actualEntryForm.actualCash = null
     actualEntryForm.closePrice = getDefaultPrice()
+    actualEntryForm.dailyCashGained = null
   }
 
   // When the active account changes, switch the form to its earliest entry date.
@@ -131,6 +135,10 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       actualShares: normalizeShares(actualEntryForm.actualShares),
       actualCash: roundMoney(actualEntryForm.actualCash),
       closePrice: roundMoney(actualEntryForm.closePrice),
+      dailyCashGained:
+        actualEntryForm.dailyCashGained === null
+          ? null
+          : roundMoney(actualEntryForm.dailyCashGained),
     }
 
     onStateChange(setAccountEntry(state.value, target.id, entry))

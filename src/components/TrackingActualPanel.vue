@@ -77,6 +77,17 @@ void props
           />
         </el-form-item>
 
+        <el-form-item label="当天实际获取现金">
+          <el-input-number
+            v-model="actualEntryForm.dailyCashGained"
+            :min="0"
+            :step="100"
+            :precision="2"
+            controls-position="right"
+            placeholder="可留空"
+          />
+        </el-form-item>
+
         <div class="actual-actions">
           <el-button
             type="primary"
