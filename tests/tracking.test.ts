@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ALL_TRADING_DATES } from '../src/data/sources'
 import {
   buildComparisonRows,
   buildRows,
-  DEFAULT_PARAMS,
   type ActualPositionEntry,
   type TrackingParams,
   type TrackingRow,
@@ -29,56 +27,6 @@ describe('buildRows', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0].date).toBe('2026.06.03')
     expect(rows[1].date).toBe('2026.06.04')
-  })
-
-  it('keeps accumulating continuously when the end date crosses into a new year', () => {
-    const rows = buildRows(
-      {
-        ...DEFAULT_PARAMS,
-        endDate: '2027.01.05',
-      },
-      ALL_TRADING_DATES,
-    )
-
-    expect(rows).toHaveLength(139)
-    expect(rows.slice(-4)).toEqual([
-      {
-        index: 136,
-        date: '2026.12.30',
-        tProfit: 49080,
-        lotsBought: 14,
-        targetCash: 718.3,
-        targetAssets: 1529440.3,
-        targetShares: 42300,
-      },
-      {
-        index: 137,
-        date: '2026.12.31',
-        tProfit: 50760,
-        lotsBought: 14,
-        targetCash: 882.3,
-        targetAssets: 1580200.3,
-        targetShares: 43700,
-      },
-      {
-        index: 138,
-        date: '2027.01.04',
-        tProfit: 52440,
-        lotsBought: 14,
-        targetCash: 2726.3,
-        targetAssets: 1632640.3,
-        targetShares: 45100,
-      },
-      {
-        index: 139,
-        date: '2027.01.05',
-        tProfit: 54120,
-        lotsBought: 15,
-        targetCash: 2636.3,
-        targetAssets: 1686760.3,
-        targetShares: 46600,
-      },
-    ])
   })
 })
 

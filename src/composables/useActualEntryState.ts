@@ -6,7 +6,12 @@ import {
   type Account,
   type AppState,
 } from '../lib/accountState'
-import type { ActualPositionEntry, TrackingRow } from '../lib/tracking'
+import {
+  DEFAULT_PARAMS,
+  type ActualPositionEntry,
+  type TrackingRow,
+} from '../lib/tracking'
+import { roundMoney } from '../lib/trackingCore'
 
 export interface ActualEntryDraft {
   date: string
@@ -23,7 +28,6 @@ interface UseActualEntryStateOptions {
   getDefaultPrice: () => number
 }
 
-const roundMoney = (value: number) => Number(value.toFixed(2))
 const normalizeShares = (value: number) => Math.trunc(value)
 
 const resolvePreferredEntryDate = (
@@ -38,7 +42,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
   const { account, state, onStateChange, rows, getDefaultPrice } = options
 
   const actualEntryForm = reactive<ActualEntryDraft>({
-    date: account.value?.params.startDate ?? '2026.06.15',
+    date: account.value?.params.startDate ?? DEFAULT_PARAMS.startDate,
     actualShares: null,
     actualCash: null,
     closePrice: getDefaultPrice(),
@@ -82,7 +86,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       previousAccountId = id
       const entries = Object.keys(actualEntries.value)
       const firstRow = rows.value[0]
-      const fallback = firstRow?.date ?? '2026.06.15'
+      const fallback = firstRow?.date ?? DEFAULT_PARAMS.startDate
       actualEntryForm.date = resolvePreferredEntryDate(
         entries.length > 0 ? entries : [fallback],
         fallback,

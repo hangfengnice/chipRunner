@@ -45,8 +45,6 @@ export function useAppState(options: UseAppStateOptions = {}) {
     ),
   )
 
-  const accountCount = computed(() => Object.keys(state.value.accounts).length)
-
   const load = async () => {
     if (isLoading.value) return
     isLoading.value = true
@@ -147,7 +145,6 @@ export function useAppState(options: UseAppStateOptions = {}) {
   return {
     state,
     accounts,
-    accountCount,
     selectedAccount,
     selectedAccountId,
     isLoading,

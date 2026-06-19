@@ -153,10 +153,11 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   })
 
   const yearScopeOptions = computed<YearScopeOption[]>(() => {
-    const allLabel =
-      firstCalendarYear && lastCalendarYear
-        ? `全部年份（${firstCalendarYear}-${lastCalendarYear}）`
-        : '全部年份'
+    const allLabel = !firstCalendarYear
+      ? '全部年份'
+      : firstCalendarYear === lastCalendarYear
+        ? `全部年份（${firstCalendarYear}）`
+        : `全部年份（${firstCalendarYear}-${lastCalendarYear}）`
 
     return [
       {
@@ -170,10 +171,11 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
     ]
   })
 
-  const titleYearRange =
-    firstCalendarYear && lastCalendarYear
-      ? `${firstCalendarYear}-${lastCalendarYear}`
-      : 'Multi-Year'
+  const titleYearRange = !firstCalendarYear
+    ? 'Multi-Year'
+    : firstCalendarYear === lastCalendarYear
+      ? `${firstCalendarYear}`
+      : `${firstCalendarYear}-${lastCalendarYear}`
 
   const rows = computed(() =>
     buildRows({ ...form }, ALL_TRADING_DATES),

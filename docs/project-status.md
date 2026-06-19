@@ -1,21 +1,22 @@
 # 项目状态记录
 
-更新时间:2026-06-16
+更新时间:2026-06-18
 
 ## 当前状态
 
+- **2026-06-18**:代码梳理(只读审查)产出 `docs/codebase-review.md`(9 条发现 F1–F9、5 批推进 A–E);随后执行**日历精简**——仅保留 2026 日历,删除 2027–2030,同步 `src/data/sources.ts`,删除失效的"跨年累计"测试用例(`npm run build` + `npm test` 35 用例全绿)。`CLAUDE.md` 同步修正 endDate / composable 签名 / onStateChange 说明;`project-status.md` 的 `endDate` 描述(F4)已对齐为"2026 日历最后一日"。
 - 仓库根目录为 Vite 项目;Vue 3 + TypeScript + Element Plus 技术栈稳定。
 - 多账户数据模型已落地:每个账户独立的 `TrackingParams` + 独立的实盘记录,持久化在 `data/tracking/state.json`。
 - 旧的单账户 `actual-entries.json` 已下线,首次启动时服务端会自动迁移到 `state.json` 的"默认账户"中,然后删除老文件。
 - Python 迁移工具 (`scripts/migrate_data.py`)、重复的 Markdown 副本 (`docs/2026-*.md`、`docs/2027-2030-estimated-trading-dates.md`、`docs/dialog-tracking-draft.md`、`docs/baseline-refresh-playbook.md`)、冗余 Vue 组件 (`TrackingHeroPanel.vue`、`TrackingNotesPanel.vue`)、未引用的 `data/tracking/*.json` 全部清理。
-- 老的 `tests/tracking.test.ts` 中"跨年累计"用例的基线与当前日历/计算结果不一致,已重新对齐到 `npm test` 的当前真实输出值。
+- `tests/tracking.test.ts` 的"跨年累计"用例在日历精简至仅 2026 后失效,已删除(连续累计核心仍由 `trackingCore.test.ts` 覆盖)。
 - 日期准确性已由新增的 `tests/trackingCalendar.test.ts` 守卫:断言 `ALL_TRADING_DATES` 升序、去重、首日 ≥ `2026.06.08`、仅含 `data/calendar/*.json` 中的日期。
 
 ## 当前目录口径
 
 - `src/`:Vue 组件、composables、计算内核、浏览器侧 API 封装
 - `src/lib/`:计算、状态模型、格式化、API 客户端(纯函数或浏览器侧 IO)
-- `data/calendar/`:5 份年度交易日 JSON(2026–2030)
+- `data/calendar/`:1 份年度交易日 JSON(2026)
 - `data/tracking/state.json`:多账户状态文件(由 `appStateApiPlugin` 维护)
 - `docs/`:本文件 + 项目级说明
 - `tests/`:Vitest 测试(纯函数,无 DOM)
@@ -23,7 +24,7 @@
 ## 已完成功能
 
 - 目标模型参数录入与逐日重算(基于 `trackingCore`)
-- 2026–2030 多年度交易日连续计算
+- 2026 交易日连续计算
 - 年份视图切换与展示区间筛选
 - 预期股数、预期现金、预期总资产摘要卡片
 - 当前股数、当前现金、收盘价录入与对照
@@ -34,7 +35,7 @@
 
 - 权威内核:`src/lib/trackingCore.ts` —— 纯函数,不感知账户、不感知 IO。
 - `src/lib/tracking.ts` 包装内核:加日期过滤 (`buildRows`)、实盘对照 (`buildComparisonRows`)。
-- 默认参数:`startDate='2026.06.15'`、`initialShares=500`、`initialCash=1650.30`、`price=36.14`、`spread=1.2`、`lotCost=3614`、`hiddenTradingDays=0`、`endDate` 动态 = `ALL_TRADING_DATE_TO`。
+- 默认参数:`startDate='2026.06.15'`、`initialShares=500`、`initialCash=1650.30`、`price=36.14`、`spread=1.2`、`lotCost=3614`、`hiddenTradingDays=0`、`endDate` 动态 = 2026 日历最后一日(`TRADING_DATES_2026` 末位)。
 
 ## 数据流
 
@@ -52,7 +53,7 @@
 ## 当前验证状态
 
 - `npm run build` 已通过(Vue 3.5 + TypeScript 6 + Vite 8)
-- `npm test` 已通过 36 个用例,覆盖:`trackingCore` 5 + `tracking` 5(含跨账户隔离用例)+ `trackingYearScope` 2 + `appState` 18 + `trackingCalendar` 7
+- `npm test` 已通过 35 个用例,覆盖:`trackingCore` 4 + `tracking` 4(含跨账户隔离用例)+ `trackingYearScope` 2 + `appState` 18 + `trackingCalendar` 7
 
 ## 重新打开项目时的快速恢复
 
@@ -62,3 +63,4 @@
 4. 需要进入页面:`npm run dev`(或复用现有服务)
 5. 需要核对计算:`src/lib/trackingCore.ts`
 6. 需要核对多账户逻辑:`src/lib/accountState.ts` + `src/composables/useAppState.ts`
+7. 若要继续代码梳理:读 `docs/codebase-review.md`,按批次 A–E 推进(批次 A = 新建 `src/lib/dateUtils.ts` 下沉日期工具 + `roundMoney` 去重)。

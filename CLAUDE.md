@@ -61,7 +61,7 @@ interface AppState {
 
 ### 数据流
 
-1. **日历**:`data/calendar/*.json`(5 份,2026–2030)→ `src/data/sources.ts` 合并为 `ALL_TRADING_DATES`(去重升序),按年索引到 `CALENDAR_BY_YEAR`。`ALL_TRADING_DATE_TO` 动态取最晚交易日;新日历加入时无需改默认值。
+1. **日历**:`data/calendar/*.json`(当前仅 2026 一份)→ `src/data/sources.ts` 合并为 `ALL_TRADING_DATES`(去重升序),按年索引到 `CALENDAR_BY_YEAR`。`ALL_TRADING_DATE_TO` 动态取最晚交易日;新日历加入时无需改默认值。
 2. **状态**: `data/tracking/state.json` 持久化整个 `AppState`。服务端启动时若文件不存在,自动注入单"默认账户"(`DEFAULT_PARAMS`,空实盘);若老的 `actual-entries.json` 仍存在,会迁入默认账户后删除。
 3. **行计算**: `src/lib/tracking.ts` 用 `buildRows(params, ALL_TRADING_DATES)` 调用计算内核,加日期过滤;`buildComparisonRows(rows, entries)` 叠加实盘对照。
 4. **UI 分层**:

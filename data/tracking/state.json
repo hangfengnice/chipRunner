@@ -1,39 +1,23 @@
 {
   "version": 1,
-  "selectedAccountId": "tik8tgc1",
+  "selectedAccountId": "4i4j3ryt",
   "accounts": {
-    "tik8tgc1": {
-      "id": "tik8tgc1",
+    "4i4j3ryt": {
+      "id": "4i4j3ryt",
       "name": "默认账户",
       "params": {
-        "startDate": "2026.06.15",
-        "initialShares": 1000,
+        "startDate": "2026.06.22",
+        "initialShares": 2500,
         "initialCash": 0,
-        "price": 12.32,
-        "spread": 0.5,
-        "lotCost": 1232,
+        "price": 23.06,
+        "spread": 0.4,
+        "lotCost": 2306,
         "hiddenTradingDays": 0,
         "endDate": "2026.12.31"
       },
       "actualEntries": {},
-      "updatedAt": "2026-06-16T10:15:45.628Z"
-    },
-    "beyhr91r": {
-      "id": "beyhr91r",
-      "name": "账户",
-      "params": {
-        "startDate": "2026.06.15",
-        "initialShares": 500,
-        "initialCash": 1650.3,
-        "price": 36.14,
-        "spread": 1.2,
-        "lotCost": 3614,
-        "hiddenTradingDays": 0,
-        "endDate": "2026.12.31"
-      },
-      "actualEntries": {},
-      "updatedAt": "2026-06-16T10:17:15.253Z"
+      "updatedAt": "2026-06-18T10:34:24.074Z"
     }
   },
-  "updatedAt": "2026-06-17T07:35:42.409Z"
+  "updatedAt": "2026-06-18T12:34:59.734Z"
 }

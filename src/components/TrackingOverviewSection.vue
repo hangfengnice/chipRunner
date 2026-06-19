@@ -175,7 +175,7 @@ const selectedYearScopeModel = computed({
         type="warning"
         :closable="false"
         show-icon
-        title="最新基础数据从 2026.06.15 起算，默认前置交易日为 0；年份视图和展示区间只影响展示，不会重置累计过程。"
+        :title="`最新基础数据从 ${form.startDate} 起算，默认前置交易日为 ${form.hiddenTradingDays}；年份视图和展示区间只影响展示，不会重置累计过程。`"
       />
     </el-card>
 

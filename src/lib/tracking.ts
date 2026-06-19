@@ -51,12 +51,12 @@ export interface TrackingComparisonRow extends TrackingRow {
 export const syncLotCostFromPrice = (price: number) => roundMoney(price * 100)
 
 export const DEFAULT_PARAMS: TrackingParams = {
-  startDate: '2026.06.15',
-  initialShares: 500,
-  initialCash: 1650.3,
-  price: 36.14,
-  spread: 1.2,
-  lotCost: 3614,
+  startDate: '2026.06.22',
+  initialShares: 1200,
+  initialCash: 0,
+  price: 23.06,
+  spread: 0.35,
+  lotCost: 2306,
   hiddenTradingDays: 0,
   endDate: TRADING_DATES_2026[TRADING_DATES_2026.length - 1] ?? '2026.12.31',
 }

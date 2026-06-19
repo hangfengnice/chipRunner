@@ -66,7 +66,7 @@ describe('createDefaultAccount', () => {
   it('clones params to prevent later mutation of DEFAULT_PARAMS', () => {
     const account = createDefaultAccount()
     account.params.initialShares = 999
-    expect(DEFAULT_PARAMS.initialShares).toBe(500)
+    expect(DEFAULT_PARAMS.initialShares).toBe(1200)
   })
 
   it('uses a unique 8-char id per call', () => {
