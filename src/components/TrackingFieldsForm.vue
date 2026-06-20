@@ -35,7 +35,7 @@ defineProps<{
       <el-input-number
         v-model="draft.price"
         :min="0.01"
-        :step="0.1"
+        :step="0.01"
         :precision="2"
         controls-position="right"
       />
@@ -52,7 +52,7 @@ defineProps<{
       <el-input-number
         v-model="draft.initialCash"
         :min="0"
-        :step="100"
+        :step="0.01"
         :precision="2"
         controls-position="right"
       />
@@ -61,7 +61,7 @@ defineProps<{
       <el-input-number
         v-model="draft.spread"
         :min="0"
-        :step="0.1"
+        :step="0.01"
         :precision="2"
         controls-position="right"
       />
