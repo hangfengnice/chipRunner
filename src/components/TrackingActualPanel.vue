@@ -29,10 +29,9 @@ void props
       <div class="panel-title">
         <span>实盘录入</span>
         <small>
-          当前账户:
+          当前票:
           <strong>{{ accountName }}</strong>
-          · 录入后点击保存，会通过当前开发服务直接写回 data/tracking/state.json
-          并参与下方对照计算。
+          · 录入后点击保存，会写回浏览器 localStorage 并参与下方对照计算。
         </small>
       </div>
     </template>
@@ -154,8 +153,7 @@ void props
             }}
           </p>
           <p>
-            只要当前开发服务在运行，页面保存和清除都会直接改写仓库里的
-            state.json。
+            页面保存和清除都会直接写回浏览器 localStorage。
           </p>
         </div>
       </div>

@@ -52,7 +52,7 @@ const selectedYearScopeModel = computed({
           <div>
             <span>模型参数</span>
             <small v-if="account">
-              当前账户:
+              当前票:
               <strong>{{ account.name }}</strong>
             </small>
             <small>

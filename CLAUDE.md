@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-chipRunner 是一个基于 Vue 3 + Element Plus 的交易跟踪原型(中文 UI)。状态以多账户模型组织(每个账户独立的 `TrackingParams` 与实盘记录),UI 聚焦当前账户的逐日跟踪。计算内核 `src/lib/trackingCore.ts` 按固定规则逐日累加,前端将实盘录入通过 Vite 中间件直接写回 `data/tracking/state.json`。
+chipRunner 是一个基于 Vue 3 + Element Plus 的**多票(股票)交易跟踪原型**(中文 UI),纯前端无后端。每只票有独立的模型参数(`TrackingParams`)与实盘记录,顶部标签页切换查看;状态持久化在浏览器 **localStorage**(只存关键数据:参数 + 实盘录入,计算结果全部实时派生)。计算内核 `src/lib/trackingCore.ts` 按固定规则逐日累加。
 
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server (依赖其写入 state.json)
+npm run dev          # Vite dev server(纯前端,状态存浏览器 localStorage)
 npm run build        # vue-tsc -b 类型检查 + vite build
 npm test             # Vitest 3.x — 运行全部 tests/
 npm run test:watch   # Vitest watch 模式
 ```
 
-跑单个测试:`npx vitest run tests/appState.test.ts`
+跑单个测试:`npx vitest run tests/useTrackingDashboard.test.ts`
 
 ## Architecture
 
@@ -32,16 +32,16 @@ npm run test:watch   # Vitest watch 模式
   ```
 - `buildCoreTrackingRows(params, dates)` 先跑 `hiddenTradingDays` 次"预热"(结果不进入输出),再映射日期数组。
 - `findMatchedIndexByAssets` / `buildProgressDelta` 提供进度定位。
-- `isValidCoreTrackingParams` 是模块内部 helper(不导出)。
+- `isValidCoreTrackingParams` / `CoreTrackingSnapshot` 是模块内部 helper(不导出)。
 
 ### 数据模型
 
-**`src/lib/accountState.ts`** 定义多账户状态:
+**`src/lib/accountState.ts`** 定义多票状态(代码层仍叫 `Account`,UI 语义为"票"):
 
 ```ts
 interface Account {
   id: string                                    // generateAccountId() 8 位
-  name: string                                  // 用户可重命名
+  name: string                                  // 票名
   params: TrackingParams                        // 完整参数集(从 DEFAULT_PARAMS 复制)
   actualEntries: Record<string, ActualPositionEntry>
   updatedAt: string
@@ -55,31 +55,29 @@ interface AppState {
 }
 ```
 
-提供纯函数助手:`createSeedState({ legacyEntries, legacyParams })` / `createDefaultAccount` / `createAccount` / `renameAccount` / `deleteAccount` / `selectAccount` / `upsertAccount` / `getSelectedAccount` / `getAccountEntries` / `setAccountEntry` / `removeAccountEntry`。所有更新都是不可变(spread)。
-
-账户 id 由内置 `generateAccountId()`(8 位 `[a-z0-9]`)生成,不是 nanoid——无额外依赖。账户名经 `buildUniqueName` 去重(同名自动加 `(2)`/`(3)`),`deleteAccount` / `selectAccount` / `renameAccount` / `setAccountEntry` / `removeAccountEntry` 在目标缺失时返回原 `state`(无副作用),便于上层用引用比较判空。
+提供纯函数助手:`createSeedState({ legacyEntries, legacyParams })` / `createDefaultAccount` / `createAccount` / `renameAccount` / `deleteAccount` / `selectAccount` / `upsertAccount` / `getSelectedAccount` / `setAccountEntry` / `removeAccountEntry`。所有更新都是不可变(spread);账户/日期缺失时相应函数返回原 `state`(无副作用),便于上层用引用比较判空。
 
 ### 数据流
 
-1. **日历**:`data/calendar/*.json`(当前仅 2026 一份)→ `src/data/sources.ts` 合并为 `ALL_TRADING_DATES`(去重升序),按年索引到 `CALENDAR_BY_YEAR`。`ALL_TRADING_DATE_TO` 动态取最晚交易日;新日历加入时无需改默认值。
-2. **状态**: `data/tracking/state.json` 持久化整个 `AppState`。服务端启动时若文件不存在,自动注入单"默认账户"(`DEFAULT_PARAMS`,空实盘);若老的 `actual-entries.json` 仍存在,会迁入默认账户后删除。
+1. **日历**:`data/calendar/*.json`(当前仅 2026 一份)→ `src/data/sources.ts` 合并为 `ALL_TRADING_DATES`(去重升序),按年索引到 `CALENDAR_BY_YEAR`。`ALL_TRADING_DATE_TO` 动态取最晚交易日。
+2. **状态**: 浏览器 **localStorage**(key `chiprunner-state-v1`)持久化整个 `AppState`。首次为空时 `useAppState` 注入单"默认票"(`DEFAULT_PARAMS`,空实盘)。
 3. **行计算**: `src/lib/tracking.ts` 用 `buildRows(params, ALL_TRADING_DATES)` 调用计算内核,加日期过滤;`buildComparisonRows(rows, entries)` 叠加实盘对照。
 4. **UI 分层**:
-   - **所有账户写回统一走 `onStateChange`**:App.vue 把 `useAppState.updateState` 作为 `onStateChange` 传给子 composable。子 composable 用 `accountState` 纯函数算出**新的** `AppState`,再 `onStateChange(next)` 回灌——**不要**直接改 `account.value` 或 `state.accounts[...]`。最终 `state`(唯一可写源)的 deep watcher → 400ms debounce 整体 PUT。
-   - `src/App.vue` 是装配 shell,持有 `useAppState` 实例,把当前账户 `Ref` + `state` + `onStateChange` 注入 `useTrackingDashboard`。
-   - `src/composables/useAppState.ts` 拥有整个 `state`(唯一可写源)、`selectedAccount`(computed)、加载/保存状态、400ms debounce 自动保存;持久化时用 `ignoreWatcher` 屏蔽服务端回填避免保存死循环。账户 CRUD 方法已随切换 UI 一并移除。
-   - `src/composables/useTrackingDashboard.ts` 接收 `{ account, state, onStateChange }`,所有派生状态都是当前账户的;表单编辑经 `onStateChange` 写回账户 params。
+   - **所有写回统一走 `onStateChange`**:App.vue 把 `useAppState.updateState` 作为 `onStateChange` 传给子 composable。子 composable 用 `accountState` 纯函数算出**新的** `AppState`,再 `onStateChange(next)` 回灌——**不要**直接改 `account.value` 或 `state.accounts[...]`。最终 `state`(唯一可写源)的 deep watcher → 400ms debounce 写回 localStorage。
+   - `src/App.vue` 是装配 shell,持有 `useAppState` 实例,把当前票 `Ref` + `state` + `onStateChange` 注入 `useTrackingDashboard`;并装配票标签页 / 新建 / 编辑对话框。
+   - `src/composables/useAppState.ts` 拥有整个 `state`(唯一可写源)、`selectedAccount` / `selectedAccountId` / `accounts`(computed)、票 CRUD(`createTicket` / `editTicket` / `selectTicket` / `removeTicket`)、400ms debounce 自动写回 localStorage。
+   - `src/composables/useTrackingDashboard.ts` 接收 `{ account, state, onStateChange }`,所有派生状态都是当前票的;表单编辑经 `onStateChange` 写回票 params。切换票时已有 `watch(account.id)` 自动 rehydrate 表单/实盘。
    - `src/composables/useActualEntryState.ts` 同样接收 `{ account, state, onStateChange, rows, getDefaultPrice }`,保存/清除调 `setAccountEntry` / `removeAccountEntry` 后经 `onStateChange` 回灌。
    - `src/lib/trackingYearScope.ts` 决定年份视图切换时的计算截止日。
    - `src/lib/trackingDisplay.ts` 提供金额/百分比/差额格式化(`formatMoney` / `formatRatio` / `deltaTagType` 等)。
 
-### 服务端写回
+### 状态持久化(localStorage)
 
-`vite.config.ts` 中 `appStateApiPlugin` 在 `/api/state` 上挂中间件:
-- `GET` → 读取 `state.json`(若不存在则 seed 并写回)
-- `PUT` body `AppState` → 整体替换;`version !== 1` / 缺少 `selectedAccountId` / 空 accounts / selectedId 不在 accounts 中 → 返回 422。
-- 写入时刷新顶层 `updatedAt`。
-- 浏览器侧通过 `src/lib/stateApi.ts` 调用。
+纯前端无后端。`useAppState` 把整个 `AppState` 序列化进浏览器 **localStorage**(key `chiprunner-state-v1`):
+- 读取:模块初始化时同步读;解析失败 / 为空 → 注入默认票(`createSeedState()`)。
+- 写入:对 `state` 的 deep watcher → 400ms debounce → `localStorage.setItem`。
+- 只存关键数据(每只票的 params + actualEntries + 结构),计算结果不持久化。
+- 部署为纯静态(`dist` + Nginx),无需 Node 后端(见 `deploy.sh`)。
 
 ### 默认模型参数
 
@@ -100,38 +98,39 @@ DEFAULT_PARAMS = {
 
 | 组件 | 职责 |
 | --- | --- |
-| `App.vue` | 装配 shell,创建 `useAppState` + `useTrackingDashboard` |
+| `App.vue` | 装配 shell,创建 `useAppState` + `useTrackingDashboard`,挂载票标签页 / 新建 / 编辑对话框 |
+| `TrackingTicketTabs.vue` | 顶部票标签页(切换)+ 新建 / 编辑按钮 |
+| `TrackingTicketCreateDialog.vue` | 新建票对话框(票名 + 关键参数) |
+| `TrackingTicketEditDialog.vue` | 编辑票对话框(改名 + 改参数 + 删除票) |
+| `TrackingFieldsForm.vue` | 新建/编辑共用的 6 字段表单(票名/起始日/股价/股数/现金/差价)+ `TicketDraft` 类型 |
 | `TrackingOverviewSection.vue` | 参数表单(分区)+ 3 张统计卡片 + 顶栏操作按钮 |
 | `TrackingActualPanel.vue` | 实盘录入表单(分区)+ 当前目标基准 + 保存状态 |
 | `TrackingTablePanel.vue` | 18 列对照表(目标 + 实盘 + 派生) |
 
-> 账户切换/管理 UI(`TrackingAccountSwitcher` / `TrackingAccountManager`)已移除——多账户数据模型仍保留(`accountState` / `state.json`),UI 锁定为单账户视图。
-
 ## Key Reference Files
 
 - `src/lib/trackingCore.ts` — 计算内核(权威)
-- `src/lib/accountState.ts` — 账户状态模型(权威)
-- `src/lib/stateApi.ts` — 浏览器侧 fetch 封装
-- `src/composables/useAppState.ts` — 顶层状态机
-- `src/composables/useTrackingDashboard.ts` — 账户作用域 dashboard
+- `src/lib/accountState.ts` — 票状态模型(权威,代码层 `Account` = 票)
+- `src/composables/useAppState.ts` — 顶层状态机(localStorage 持久化 + 票 CRUD)
+- `src/composables/useTrackingDashboard.ts` — 当前票作用域 dashboard
 - `tests/trackingCalendar.test.ts` — 日历准确性守卫
-- `tests/appState.test.ts` — 账户状态纯函数测试
+- `tests/appState.test.ts` — 票状态纯函数测试
+- `tests/useTrackingDashboard.test.ts` — dashboard 联动测试(对照行 / 最近10日 / 表单写回)
 - `data/calendar/*.json` — 交易日权威源
-- `data/tracking/state.json` — 多账户状态持久化文件
-- `docs/project-status.md` — 当前项目状态与下一步
+- `docs/project-status.md` — 当前项目状态
 
 ## Working Conventions
 
 - 默认中文回复。
-- **按钮带图标统一用 `el-button` 的 `:icon` prop**(如 `<el-button :icon="RefreshRight">文字</el-button>`),不要在 slot 里手写 `<el-icon>`——后者图标与文字垂直对齐有问题且需额外 CSS 修补;卡片标题等**纯装饰图标仍用 `<el-icon>`**(`:icon` prop 只适用于按钮等支持它的组件)。
+- **按钮带图标统一用 `el-button` 的 `:icon` prop**(如 `<el-button :icon="RefreshRight">文字</el-button>`),不要在 slot 里手写 `<el-icon>`——后者图标与文字垂直对齐有问题且需额外 CSS 修补;卡片标题等**纯装饰图标仍用 `<el-icon>`**。
 - 优先最小化修改,避免无关重构。
 - 新增结构化数据写入 `data/`,不要把 Markdown 当前端主数据源(`docs/` 仅保留项目状态)。
-- 重新打开项目时:先读 `docs/project-status.md`,再看 `git status --short`,再启 `npm run dev`(优先复用旧服务)。
+- 重新打开项目时:先读 `docs/project-status.md`,再看 `git status --short`,再启 `npm run dev`。
 - 前端日常改动:依赖现有 `npm run dev` + 编辑器错误。
-- 修改 `vite.config.ts`、依赖、写回接口、目录结构后必须跑 `npm run build`。
-- 替换基础参数时:**必须**同步 `tests/trackingCore.test.ts` 与 `tests/tracking.test.ts` 里的基线样本值,否则 `npm test` 失败。
+- 修改 `vite.config.ts`、依赖、目录结构后必须跑 `npm run build`。
+- 替换基础参数时:**必须**同步 `tests/trackingCore.test.ts`、`tests/tracking.test.ts`、`tests/appState.test.ts` 里的基线样本值,否则 `npm test` 失败。
 - **不要臆造交易日**——所有日期来自 `data/calendar/*.json`。
-- 多账户隔离:`useTrackingDashboard` / `useActualEntryState` 都从 `account.value` 读,不要绕过它去读 `state.accounts[...]`。
+- 票隔离:`useTrackingDashboard` / `useActualEntryState` 都从 `account.value`(当前选中票)读,不要绕过它去读 `state.accounts[...]`。
 - 新增年度:把 JSON 放入 `data/calendar/` + 在 `src/data/sources.ts` 加 import。
 
 ## Tech Stack

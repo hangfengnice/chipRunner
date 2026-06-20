@@ -4,7 +4,6 @@ import {
   createDefaultAccount,
   createSeedState,
   deleteAccount,
-  getAccountEntries,
   getSelectedAccount,
   removeAccountEntry,
   renameAccount,
@@ -24,7 +23,7 @@ describe('createSeedState', () => {
     const accountId = state.selectedAccountId
     const account = state.accounts[accountId]
     expect(account).toBeDefined()
-    expect(account?.name).toBe('默认账户')
+    expect(account?.name).toBe('默认票')
     expect(account?.params).toEqual(DEFAULT_PARAMS)
     expect(account?.actualEntries).toEqual({})
   })
@@ -92,7 +91,7 @@ describe('createAccount / upsertAccount', () => {
     state = createAccount(state, '家人')
     state = createAccount(state, '家人')
     const names = Object.values(state.accounts).map((account) => account.name)
-    expect(names).toEqual(['默认账户', '家人', '家人 (2)'])
+    expect(names).toEqual(['默认票', '家人', '家人 (2)'])
   })
 
   it('upsertAccount returns a new state without mutating the input', () => {
@@ -124,7 +123,7 @@ describe('renameAccount / selectAccount', () => {
       (id) => id !== previousId,
     )!
 
-    const switched = selectAccount(state, otherId!)
+    const switched = selectAccount(state, otherId)
     expect(switched.selectedAccountId).toBe(otherId)
 
     expect(selectAccount(state, 'unknown')).toBe(state)
@@ -155,7 +154,13 @@ describe('deleteAccount', () => {
   it('falls back to a valid selection when the deleted one was active', () => {
     let state = createSeedState()
     state = createAccount(state, 'B')
-    state = selectAccount(state, state.selectedAccountId === state.accounts[Object.keys(state.accounts)[0]!.id]?.id ? Object.keys(state.accounts)[1]! : Object.keys(state.accounts)[0]!)
+    state = selectAccount(
+      state,
+      state.selectedAccountId ===
+      state.accounts[Object.keys(state.accounts)[0]!.id]?.id
+        ? Object.keys(state.accounts)[1]!
+        : Object.keys(state.accounts)[0]!,
+    )
 
     const activeId = state.selectedAccountId
     const after = deleteAccount(state, activeId)
@@ -164,8 +169,8 @@ describe('deleteAccount', () => {
   })
 })
 
-describe('getSelectedAccount / getAccountEntries', () => {
-  it('getSelectedAccount falls back when selectedAccountId drifts', () => {
+describe('getSelectedAccount', () => {
+  it('falls back when selectedAccountId drifts', () => {
     const state = createSeedState()
     const drifted: AppState = {
       ...state,
@@ -174,22 +179,6 @@ describe('getSelectedAccount / getAccountEntries', () => {
     const account = getSelectedAccount(drifted)
     expect(account).toBeDefined()
     expect(Object.values(state.accounts)).toContain(account)
-  })
-
-  it('getAccountEntries prefers requested id, then selected, then first', () => {
-    let state = createSeedState()
-    state = setAccountEntry(state, state.selectedAccountId, {
-      date: '2026.06.15',
-      actualShares: 1,
-      actualCash: 1,
-      closePrice: 1,
-    })
-
-    const fromSelected = getAccountEntries(
-      state,
-      state.selectedAccountId,
-    )
-    expect(fromSelected['2026.06.15']).toBeDefined()
   })
 })
 
@@ -206,10 +195,10 @@ describe('setAccountEntry / removeAccountEntry', () => {
       actualCash: 2000,
       closePrice: 36.5,
     }
-    state = setAccountEntry(state, a!, entry)
+    state = setAccountEntry(state, a, entry)
 
-    expect(state.accounts[a!]?.actualEntries['2026.06.15']).toEqual(entry)
-    expect(state.accounts[b!]?.actualEntries['2026.06.15']).toBeUndefined()
+    expect(state.accounts[a]?.actualEntries['2026.06.15']).toEqual(entry)
+    expect(state.accounts[b]?.actualEntries['2026.06.15']).toBeUndefined()
   })
 
   it('removeAccountEntry clears the date without touching other dates', () => {

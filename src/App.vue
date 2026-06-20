@@ -1,19 +1,30 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import TrackingActualPanel from './components/TrackingActualPanel.vue'
 import TrackingOverviewSection from './components/TrackingOverviewSection.vue'
 import TrackingTablePanel from './components/TrackingTablePanel.vue'
+import TrackingTicketCreateDialog from './components/TrackingTicketCreateDialog.vue'
+import TrackingTicketEditDialog from './components/TrackingTicketEditDialog.vue'
+import TrackingTicketTabs from './components/TrackingTicketTabs.vue'
 import { useAppState } from './composables/useAppState'
 import { useTrackingDashboard } from './composables/useTrackingDashboard'
+import type { TrackingParams } from './lib/tracking'
 
 const {
+  accounts,
   isLoading,
   isSaving,
   lastSavedAt,
   load,
   selectedAccount,
+  selectedAccountId,
   state,
   updateState,
+  createTicket,
+  editTicket,
+  selectTicket,
+  removeTicket,
 } = useAppState()
 
 const {
@@ -46,6 +57,39 @@ const {
   onStateChange: updateState,
 })
 
+const createDialogVisible = ref(false)
+const editDialogVisible = ref(false)
+
+const handleCreate = () => {
+  createDialogVisible.value = true
+}
+
+const handleCreateSubmit = (name: string, params: TrackingParams) => {
+  createTicket(name, params)
+}
+
+const handleEdit = () => {
+  editDialogVisible.value = true
+}
+
+const handleEditSave = (id: string, name: string, params: TrackingParams) => {
+  editTicket(id, name, params)
+}
+
+const handleEditRemove = async (id: string) => {
+  try {
+    await ElMessageBox.confirm('确定删除这只票？', '删除票', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+    removeTicket(id)
+    editDialogVisible.value = false
+  } catch {
+    // 用户取消
+  }
+}
+
 onMounted(() => {
   void load()
 })
@@ -63,6 +107,14 @@ onMounted(() => {
         </p>
       </div>
     </header>
+
+    <TrackingTicketTabs
+      :accounts="accounts"
+      :selected-account-id="selectedAccountId"
+      @select="selectTicket"
+      @create="handleCreate"
+      @edit="handleEdit"
+    />
 
     <TrackingOverviewSection
       :account="selectedAccount"
@@ -83,7 +135,7 @@ onMounted(() => {
     />
 
     <TrackingActualPanel
-      :account-name="selectedAccount?.name ?? '默认账户'"
+      :account-name="selectedAccount?.name ?? '默认票'"
       :actual-entry-form="actualEntryForm"
       :selected-comparison-row="selectedComparisonRow"
       :saved-entry-count="savedEntryCount"
@@ -102,6 +154,18 @@ onMounted(() => {
       :end-date="form.endDate"
       :show-recent-only="showRecentOnly"
       @update:show-recent-only="(value: boolean) => (showRecentOnly = value)"
+    />
+
+    <TrackingTicketCreateDialog
+      v-model="createDialogVisible"
+      @create="handleCreateSubmit"
+    />
+
+    <TrackingTicketEditDialog
+      v-model="editDialogVisible"
+      :account="selectedAccount"
+      @save="handleEditSave"
+      @remove="handleEditRemove"
     />
   </div>
 </template>

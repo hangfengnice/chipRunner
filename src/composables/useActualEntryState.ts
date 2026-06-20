@@ -31,7 +31,7 @@ interface UseActualEntryStateOptions {
 
 const normalizeShares = (value: number) => Math.trunc(value)
 
-const resolvePreferredEntryDate = (
+const pickEarliestDate = (
   dates: readonly string[],
   fallback: string,
 ) => {
@@ -91,7 +91,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       const entries = Object.keys(actualEntries.value)
       const firstRow = rows.value[0]
       const fallback = firstRow?.date ?? DEFAULT_PARAMS.startDate
-      actualEntryForm.date = resolvePreferredEntryDate(
+      actualEntryForm.date = pickEarliestDate(
         entries.length > 0 ? entries : [fallback],
         fallback,
       )
@@ -112,7 +112,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
   const saveActualEntry = () => {
     const target = account.value
     if (!target) {
-      ElMessage.warning('当前没有选中账户')
+      ElMessage.warning('当前没有选中票')
       return
     }
 

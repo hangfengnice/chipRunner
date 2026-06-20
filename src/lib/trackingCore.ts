@@ -7,7 +7,7 @@ export interface CoreTrackingParams {
   hiddenTradingDays: number
 }
 
-export interface CoreTrackingSnapshot {
+interface CoreTrackingSnapshot {
   tProfit: number
   lotsBought: number
   targetCash: number

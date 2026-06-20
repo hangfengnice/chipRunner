@@ -52,7 +52,7 @@ const formatCurrentDate = () => {
   return `${year}.${month}.${day}`
 }
 
-const resolvePreferredDate = (
+const pickNearestToToday = (
   dates: readonly string[],
   fallbackDate: string,
 ) => {
@@ -145,7 +145,7 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   const showRecentOnly = ref(false)
   const selectedYearScope = ref(defaultYearScope)
   const displayRange = reactive<DisplayRangeDraft>({
-    dateFrom: resolvePreferredDate(
+    dateFrom: pickNearestToToday(
       ALL_TRADING_DATES.filter((date) => date >= availableDateFrom),
       availableDateFrom,
     ),

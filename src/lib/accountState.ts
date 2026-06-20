@@ -19,13 +19,12 @@ export interface AppState {
   updatedAt: string
 }
 
-const DEFAULT_ACCOUNT_NAME = '默认账户'
+const DEFAULT_ACCOUNT_NAME = '默认票'
 const STATE_VERSION = 1 as const
 
 const nowIso = () => new Date().toISOString()
 
-// nanoid replacement that doesn't require a new dependency.
-// 8 chars from a 36-char alphabet ≈ 1.7e12 combinations — collision-safe for our scale.
+// 8 位 [a-z0-9] id,无外部依赖
 const generateAccountId = () => {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let id = ''
@@ -88,7 +87,7 @@ export const upsertAccount = (state: AppState, account: Account): AppState => ({
   updatedAt: nowIso(),
 })
 
-const ACCOUNT_NAME_FALLBACK = '账户'
+const ACCOUNT_NAME_FALLBACK = '票'
 
 const buildUniqueName = (
   existing: readonly Account[],
@@ -201,16 +200,6 @@ export const getSelectedAccount = (
   return fallbackId ? state.accounts[fallbackId] : undefined
 }
 
-export const getAccountEntries = (
-  state: AppState,
-  accountId: string,
-): Record<string, ActualPositionEntry> => {
-  const account =
-    state.accounts[accountId] ??
-    state.accounts[state.selectedAccountId] ??
-    Object.values(state.accounts)[0]
-  return account ? { ...account.actualEntries } : {}
-}
 
 export const setAccountEntry = (
   state: AppState,
