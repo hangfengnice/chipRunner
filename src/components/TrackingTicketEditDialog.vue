@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import {
   DEFAULT_PARAMS,
   syncLotCostFromPrice,
   type TrackingParams,
 } from '../lib/tracking'
 import type { Account } from '../lib/accountState'
+import { ALL_TRADING_DATES } from '../data/sources'
 import TrackingFieldsForm, {
   type TicketDraft,
 } from './TrackingFieldsForm.vue'
@@ -48,6 +50,14 @@ watch(
 
 const handleSave = () => {
   if (!props.account) return
+  const name = draft.name.trim()
+  if (!name) {
+    ElMessage.warning('请输入票名')
+    return
+  }
+  if (!ALL_TRADING_DATES.includes(draft.startDate)) {
+    ElMessage.warning('起始日不是交易日,将从最近的下一个交易日开始')
+  }
   const params: TrackingParams = {
     startDate: draft.startDate,
     initialShares: draft.initialShares,
@@ -58,7 +68,7 @@ const handleSave = () => {
     hiddenTradingDays: props.account.params.hiddenTradingDays,
     endDate: props.account.params.endDate,
   }
-  emit('save', props.account.id, draft.name.trim() || '票', params)
+  emit('save', props.account.id, name, params)
   emit('update:modelValue', false)
 }
 
