@@ -149,3 +149,32 @@ A→B→C 可连续做(都低风险);D 必须在 A 之后;E 任何时候都可�
 - 组件 `.vue` 的 DOM/交互测试:原型阶段可接受,未列为问题。
 - Vite 中间件 `appStateApiPlugin` 的并发/校验:`validateState` 已覆盖主要校验(version/selectedId/accounts 非空/账户字段完整),够用。
 - 日历 JSON 准确性:已有 `trackingCalendar.test.ts` 守卫(升序/去重/首日≥2026.06.08/仅含 calendar 源),不在本次范围。
+
+---
+
+## 7. 后续进展(截至 2026-06-20)
+
+**F1–F9 执行情况:**
+
+| 项 | 状态 |
+| --- | --- |
+| F1 `roundMoney` 去重 | ✅ 完成 |
+| F3 `'2026.06.15'` 收口 | ✅ 完成(OverviewSection 文案 + useActualEntryState fallback 均改 `DEFAULT_PARAMS.startDate`) |
+| F4 文档 endDate 对齐 | ✅ 完成 |
+| F7 `accountCount` 死代码 | ✅ 完成 |
+| F2 dateUtils 下沉 | ⏭️ **跳过**——4 个工具函数多为 1–4 行、逻辑极简,补测 ROI 低,下沉也不紧迫 |
+| F5 composable 测试 | ⏸️ 待定——内核已有测试、逻辑稳定,对原型非当务之急;若做需 `@vue/test-utils` 或大抽离 |
+| F6 `resolvePreferred` 整理 | ⏸️ 待定(小) |
+| F8 `CoreTrackingSnapshot` 降级 | ⏸️ 待定(收益极低) |
+| F9 state.json endDate 观察 | ℹ️ 仅观察,无需动 |
+
+**06-18 之后的主要改动(超出原审查范围):**
+
+- **基线重置**:`DEFAULT_PARAMS` → `2026.06.22 / 1200股 / 现金0 / 23.06 / 0.35 / lotCost 2306`;`state.json` 同步重置。
+- **表格字段改造**:「做T差额」(`cashDelta`)列替换为用户录入的「当天实际获取现金」(`dailyCashGained`)+ 新增「累计获取现金」(`cumulativeCashGained`,逐日 running sum);表格 17 → **18 列**。`cashDelta` 字段保留备用。
+- **UI 精简**:移除账户切换/管理组件,多账户数据模型保留,`useAppState` 去掉 CRUD 方法。
+- **表单分区**:OverviewSection(3 列)、ActualPanel(2 列)分区 + label 带单位 + 小标题。
+- **视觉**:买入日高亮 success 绿 + 连续 streak 奇偶交替;清理表格 tag 全局颜色覆盖(恢复 EP 原生 type 色)。
+- **死代码清理**:全局死 CSS(`.hero-*`/`.notes-*`/未用变量),`style.css` 426 → 338 行。
+
+当前 `npm run build` + 35 测试全绿。

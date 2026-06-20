@@ -7,10 +7,10 @@
       "name": "默认账户",
       "params": {
         "startDate": "2026.06.22",
-        "initialShares": 2500,
+        "initialShares": 1200,
         "initialCash": 0,
         "price": 23.06,
-        "spread": 0.4,
+        "spread": 0.7,
         "lotCost": 2306,
         "hiddenTradingDays": 0,
         "endDate": "2026.12.31"
@@ -19,5 +19,5 @@
       "updatedAt": "2026-06-18T10:34:24.074Z"
     }
   },
-  "updatedAt": "2026-06-18T12:34:59.734Z"
+  "updatedAt": "2026-06-19T13:12:17.483Z"
 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-chipRunner 是一个基于 Vue 3 + Element Plus 的多账户交易跟踪原型(中文 UI)。每个账户拥有独立的模型参数(`TrackingParams`)和实盘买/卖记录,互不干扰。计算内核 `src/lib/trackingCore.ts` 按固定规则逐日累加,前端将实盘录入通过 Vite 中间件直接写回 `data/tracking/state.json`。
+chipRunner 是一个基于 Vue 3 + Element Plus 的交易跟踪原型(中文 UI)。状态以多账户模型组织(每个账户独立的 `TrackingParams` 与实盘记录),UI 聚焦当前账户的逐日跟踪。计算内核 `src/lib/trackingCore.ts` 按固定规则逐日累加,前端将实盘录入通过 Vite 中间件直接写回 `data/tracking/state.json`。
 
 ## Commands
 
@@ -40,7 +40,7 @@ npm run test:watch   # Vitest watch 模式
 
 ```ts
 interface Account {
-  id: string                                    // nanoid(8) 自生成
+  id: string                                    // generateAccountId() 8 位
   name: string                                  // 用户可重命名
   params: TrackingParams                        // 完整参数集(从 DEFAULT_PARAMS 复制)
   actualEntries: Record<string, ActualPositionEntry>
@@ -67,7 +67,7 @@ interface AppState {
 4. **UI 分层**:
    - **所有账户写回统一走 `onStateChange`**:App.vue 把 `useAppState.updateState` 作为 `onStateChange` 传给子 composable。子 composable 用 `accountState` 纯函数算出**新的** `AppState`,再 `onStateChange(next)` 回灌——**不要**直接改 `account.value` 或 `state.accounts[...]`。最终 `state`(唯一可写源)的 deep watcher → 400ms debounce 整体 PUT。
    - `src/App.vue` 是装配 shell,持有 `useAppState` 实例,把当前账户 `Ref` + `state` + `onStateChange` 注入 `useTrackingDashboard`。
-   - `src/composables/useAppState.ts` 拥有整个 `state`(唯一可写源)、`selectedAccount` / `selectedAccountId`(computed)、加载/保存状态、CRUD、400ms debounce 自动保存;持久化时用 `ignoreWatcher` 屏蔽服务端回填避免保存死循环。
+   - `src/composables/useAppState.ts` 拥有整个 `state`(唯一可写源)、`selectedAccount`(computed)、加载/保存状态、400ms debounce 自动保存;持久化时用 `ignoreWatcher` 屏蔽服务端回填避免保存死循环。账户 CRUD 方法已随切换 UI 一并移除。
    - `src/composables/useTrackingDashboard.ts` 接收 `{ account, state, onStateChange }`,所有派生状态都是当前账户的;表单编辑经 `onStateChange` 写回账户 params。
    - `src/composables/useActualEntryState.ts` 同样接收 `{ account, state, onStateChange, rows, getDefaultPrice }`,保存/清除调 `setAccountEntry` / `removeAccountEntry` 后经 `onStateChange` 回灌。
    - `src/lib/trackingYearScope.ts` 决定年份视图切换时的计算截止日。
@@ -85,12 +85,12 @@ interface AppState {
 
 ```ts
 DEFAULT_PARAMS = {
-  startDate: '2026.06.15',
-  initialShares: 500,
-  initialCash: 1650.30,
-  price: 36.14,
-  spread: 1.2,
-  lotCost: 3614,        // 通常 = price * 100
+  startDate: '2026.06.22',
+  initialShares: 1200,
+  initialCash: 0,
+  price: 23.06,
+  spread: 0.35,
+  lotCost: 2306,        // 通常 = price * 100
   hiddenTradingDays: 0,
   endDate: <动态 = 2026 日历最后一日,即 TRADING_DATES_2026 末位>
 }
@@ -101,11 +101,11 @@ DEFAULT_PARAMS = {
 | 组件 | 职责 |
 | --- | --- |
 | `App.vue` | 装配 shell,创建 `useAppState` + `useTrackingDashboard` |
-| `TrackingAccountSwitcher.vue` | 顶部下拉切换账户 + "新建/管理"按钮 |
-| `TrackingAccountManager.vue` | el-dialog:列表 + 重命名 + 删除(最后 1 个不可删) |
-| `TrackingOverviewSection.vue` | 参数表单 + 3 张统计卡片 + 账户名 + 顶栏操作按钮 |
-| `TrackingActualPanel.vue` | 实盘录入表单 + 当前目标基准 + 保存状态 |
-| `TrackingTablePanel.vue` | 17 列对照表(目标 + 实盘 + 差额) |
+| `TrackingOverviewSection.vue` | 参数表单(分区)+ 3 张统计卡片 + 顶栏操作按钮 |
+| `TrackingActualPanel.vue` | 实盘录入表单(分区)+ 当前目标基准 + 保存状态 |
+| `TrackingTablePanel.vue` | 18 列对照表(目标 + 实盘 + 派生) |
+
+> 账户切换/管理 UI(`TrackingAccountSwitcher` / `TrackingAccountManager`)已移除——多账户数据模型仍保留(`accountState` / `state.json`),UI 锁定为单账户视图。
 
 ## Key Reference Files
 
@@ -123,6 +123,7 @@ DEFAULT_PARAMS = {
 ## Working Conventions
 
 - 默认中文回复。
+- **按钮带图标统一用 `el-button` 的 `:icon` prop**(如 `<el-button :icon="RefreshRight">文字</el-button>`),不要在 slot 里手写 `<el-icon>`——后者图标与文字垂直对齐有问题且需额外 CSS 修补;卡片标题等**纯装饰图标仍用 `<el-icon>`**(`:icon` prop 只适用于按钮等支持它的组件)。
 - 优先最小化修改,避免无关重构。
 - 新增结构化数据写入 `data/`,不要把 Markdown 当前端主数据源(`docs/` 仅保留项目状态)。
 - 重新打开项目时:先读 `docs/project-status.md`,再看 `git status --short`,再启 `npm run dev`(优先复用旧服务)。

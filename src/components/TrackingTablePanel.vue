@@ -30,12 +30,23 @@ const showRecentOnlyModel = computed({
   },
 })
 
-const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
-  if (row.lotsBought > 0) {
-    return 'buy-day-row'
+const rowClassName = ({
+  row,
+  rowIndex,
+}: {
+  row: TrackingComparisonRow
+  rowIndex: number
+}) => {
+  if (row.lotsBought <= 0) return ''
+
+  // 往前数连续买入日:偶数位(第2/4/6天)用深色,奇数位(含孤立买入)用默认浅色
+  let streak = 1
+  for (let i = rowIndex - 1; i >= 0; i -= 1) {
+    if (props.visibleRows[i].lotsBought > 0) streak += 1
+    else break
   }
 
-  return ''
+  return streak % 2 === 0 ? 'buy-day-row buy-streak-deep' : 'buy-day-row'
 }
 </script>
 
@@ -66,19 +77,21 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
     <el-table
       v-else
       :data="visibleRows"
-      stripe
-      height="620"
+      height="816"
       :row-class-name="rowClassName"
     >
       <el-table-column prop="index" label="#" width="72" />
       <el-table-column prop="date" label="日期" min-width="128" />
       <el-table-column label="买入手数" width="108" align="center">
-        <template #default="scope">
+        <template #default="{ row }">
           <el-tag
-            :type="scope.row.lotsBought > 0 ? 'warning' : 'info'"
+            :type="row.lotsBought > 0 ? 'success' : 'info'"
             effect="plain"
+            :style="
+              row.lotsBought > 0 ? 'font-weight: bolder; font-size: 16px' : ''
+            "
           >
-            {{ scope.row.lotsBought }}
+            {{ row.lotsBought }}
           </el-tag>
         </template>
       </el-table-column>
@@ -89,13 +102,13 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
         align="right"
       />
       <el-table-column label="做T利润" min-width="128" align="right">
-        <template #default="scope">
-          {{ formatMoney(scope.row.tProfit) }}
+        <template #default="{ row }">
+          {{ formatMoney(row.tProfit) }}
         </template>
       </el-table-column>
       <el-table-column label="预期现金" min-width="128" align="right">
-        <template #default="scope">
-          {{ formatMoney(scope.row.targetCash) }}
+        <template #default="{ row }">
+          {{ formatMoney(row.targetCash) }}
         </template>
       </el-table-column>
       <el-table-column
@@ -105,38 +118,38 @@ const rowClassName = ({ row }: { row: TrackingComparisonRow }) => {
         class-name="target-assets-column"
         label-class-name="target-assets-column"
       >
-        <template #default="scope">
-          {{ formatMoney(scope.row.targetAssets) }}
+        <template #default="{ row }">
+          {{ formatMoney(row.targetAssets) }}
         </template>
       </el-table-column>
       <el-table-column label="当前股数" min-width="110" align="right">
-        <template #default="scope">
-          {{ formatOptionalCount(scope.row.actualShares) }}
+        <template #default="{ row }">
+          {{ formatOptionalCount(row.actualShares) }}
         </template>
       </el-table-column>
       <el-table-column label="当前现金" min-width="128" align="right">
-        <template #default="scope">
-          {{ formatOptionalMoney(scope.row.actualCash) }}
+        <template #default="{ row }">
+          {{ formatOptionalMoney(row.actualCash) }}
         </template>
       </el-table-column>
       <el-table-column label="当天实际获取现金" min-width="150" align="right">
-        <template #default="scope">
-          {{ formatOptionalMoney(scope.row.dailyCashGained) }}
+        <template #default="{ row }">
+          {{ formatOptionalMoney(row.dailyCashGained) }}
         </template>
       </el-table-column>
       <el-table-column label="累计获取现金" min-width="140" align="right">
-        <template #default="scope">
-          {{ formatMoney(scope.row.cumulativeCashGained) }}
+        <template #default="{ row }">
+          {{ formatMoney(row.cumulativeCashGained) }}
         </template>
       </el-table-column>
       <el-table-column label="收盘价" min-width="112" align="right">
-        <template #default="scope">
-          {{ formatOptionalMoney(scope.row.closePrice) }}
+        <template #default="{ row }">
+          {{ formatOptionalMoney(row.closePrice) }}
         </template>
       </el-table-column>
       <el-table-column label="当前总资产" min-width="150" align="right">
-        <template #default="scope">
-          {{ formatOptionalMoney(scope.row.actualTotalAssets) }}
+        <template #default="{ row }">
+          {{ formatOptionalMoney(row.actualTotalAssets) }}
         </template>
       </el-table-column>
       <el-table-column label="股数差额" min-width="120" align="center">

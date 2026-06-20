@@ -29,15 +29,17 @@ void props
       <div class="panel-title">
         <span>实盘录入</span>
         <small>
-          当前账户:<strong>{{ accountName }}</strong> · 录入后点击保存，会通过当前开发服务直接写回
-          data/tracking/state.json 并参与下方对照计算。
+          当前账户:
+          <strong>{{ accountName }}</strong>
+          · 录入后点击保存，会通过当前开发服务直接写回 data/tracking/state.json
+          并参与下方对照计算。
         </small>
       </div>
     </template>
 
     <div class="actual-grid">
       <el-form label-position="top" class="actual-form">
-        <el-form-item label="记录日期">
+        <el-form-item label="记录日期" class="wide-field">
           <el-date-picker
             v-model="actualEntryForm.date"
             type="date"
@@ -48,7 +50,8 @@ void props
           />
         </el-form-item>
 
-        <el-form-item label="当前股数">
+        <div class="field-group-title">当日实盘</div>
+        <el-form-item label="当前股数(股)">
           <el-input-number
             v-model="actualEntryForm.actualShares"
             :min="0"
@@ -56,18 +59,16 @@ void props
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="当前现金">
+        <el-form-item label="当前现金(元)">
           <el-input-number
             v-model="actualEntryForm.actualCash"
             :min="0"
-            :step="100"
+            :step="0.01"
             :precision="2"
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="收盘价">
+        <el-form-item label="收盘价(元)">
           <el-input-number
             v-model="actualEntryForm.closePrice"
             :min="0.01"
@@ -76,12 +77,11 @@ void props
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="当天实际获取现金">
+        <el-form-item label="当天实际获取现金(元)">
           <el-input-number
             v-model="actualEntryForm.dailyCashGained"
             :min="0"
-            :step="100"
+            :step="0.01"
             :precision="2"
             controls-position="right"
             placeholder="可留空"
@@ -96,9 +96,18 @@ void props
           >
             保存当日记录
           </el-button>
-          <el-button :disabled="isSavingActualEntry" @click="emit('clear')">
-            清除当前记录
-          </el-button>
+          <el-popconfirm
+            title="确定删除当日实盘记录？"
+            confirm-button-text="删除"
+            cancel-button-text="取消"
+            @confirm="emit('clear')"
+          >
+            <template #reference>
+              <el-button :disabled="isSavingActualEntry" type="primary">
+                删除当日实盘
+              </el-button>
+            </template>
+          </el-popconfirm>
         </div>
       </el-form>
 
@@ -145,7 +154,8 @@ void props
             }}
           </p>
           <p>
-            只要当前开发服务在运行，页面保存和清除都会直接改写仓库里的 state.json。
+            只要当前开发服务在运行，页面保存和清除都会直接改写仓库里的
+            state.json。
           </p>
         </div>
       </div>

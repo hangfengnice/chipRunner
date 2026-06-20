@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { Calendar, Coin, DataAnalysis, RefreshRight } from '@element-plus/icons-vue'
+import {
+  Calendar,
+  Coin,
+  DataAnalysis,
+  RefreshRight,
+} from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import type { TrackingParams } from '../lib/tracking'
 import { formatMoney } from '../lib/trackingDisplay'
@@ -47,17 +52,21 @@ const selectedYearScopeModel = computed({
           <div>
             <span>模型参数</span>
             <small v-if="account">
-              当前账户:<strong>{{ account.name }}</strong>
+              当前账户:
+              <strong>{{ account.name }}</strong>
             </small>
             <small>
-              接入 {{ availableDateFrom }} - {{ availableDateTo }}
-              的 {{ totalAvailableTradingDays }} 个交易日
+              接入 {{ availableDateFrom }} - {{ availableDateTo }} 的
+              {{ totalAvailableTradingDays }} 个交易日
             </small>
           </div>
           <div class="panel-actions">
             <el-button @click="emit('syncLotCost')">每手成本跟随股价</el-button>
-            <el-button type="primary" @click="emit('restorePreset')">
-              <el-icon><RefreshRight /></el-icon>
+            <el-button
+              type="primary"
+              @click="emit('restorePreset')"
+              :icon="RefreshRight"
+            >
               应用底稿默认参数
             </el-button>
           </div>
@@ -65,7 +74,7 @@ const selectedYearScopeModel = computed({
       </template>
 
       <el-form label-position="top" class="form-grid">
-        <el-form-item label="年份视图">
+        <el-form-item label="年份视图" class="wide-field">
           <el-select
             v-model="selectedYearScopeModel"
             placeholder="选择年份视图"
@@ -79,7 +88,8 @@ const selectedYearScopeModel = computed({
           </el-select>
         </el-form-item>
 
-        <el-form-item label="初始股数">
+        <div class="field-group-title">基础参数</div>
+        <el-form-item label="初始股数(股)">
           <el-input-number
             v-model="form.initialShares"
             :min="0"
@@ -87,48 +97,43 @@ const selectedYearScopeModel = computed({
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="初始现金">
+        <el-form-item label="初始现金(元)">
           <el-input-number
             v-model="form.initialCash"
             :min="0"
-            :step="100"
+            :step="0.01"
             :precision="2"
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="固定股价">
+        <el-form-item label="固定股价(元)">
           <el-input-number
             v-model="form.price"
             :min="0.01"
-            :step="0.1"
+            :step="0.01"
             :precision="2"
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="每日差价">
+        <el-form-item label="每日差价(元)">
           <el-input-number
             v-model="form.spread"
             :min="0"
-            :step="0.1"
+            :step="0.01"
             :precision="2"
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="每手成本">
+        <el-form-item label="每手成本(元)">
           <el-input-number
             v-model="form.lotCost"
             :min="0.01"
-            :step="100"
+            :step="1"
             :precision="2"
             controls-position="right"
           />
         </el-form-item>
-
-        <el-form-item label="前置交易日">
+        <el-form-item label="前置交易日(天)">
           <el-input-number
             v-model="form.hiddenTradingDays"
             :min="0"
@@ -137,7 +142,8 @@ const selectedYearScopeModel = computed({
           />
         </el-form-item>
 
-        <el-form-item label="截止日期" class="wide-field">
+        <div class="field-group-title">日期范围</div>
+        <el-form-item label="截止日期">
           <el-date-picker
             v-model="form.endDate"
             type="date"
@@ -147,7 +153,6 @@ const selectedYearScopeModel = computed({
             placeholder="选择截止日期"
           />
         </el-form-item>
-
         <el-form-item label="展示起始日">
           <el-date-picker
             v-model="displayRange.dateFrom"
@@ -158,7 +163,6 @@ const selectedYearScopeModel = computed({
             placeholder="选择展示起始日"
           />
         </el-form-item>
-
         <el-form-item label="展示截止日">
           <el-date-picker
             v-model="displayRange.dateTo"
@@ -234,9 +238,12 @@ const selectedYearScopeModel = computed({
   color: var(--el-text-color-secondary);
 }
 
-.panel-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+.field-group-title {
+  grid-column: 1 / -1;
+  margin: 6px 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-deep);
+  letter-spacing: 0.02em;
 }
 </style>
