@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import TrackingActualPanel from './components/TrackingActualPanel.vue'
 import TrackingOverviewSection from './components/TrackingOverviewSection.vue'
@@ -13,10 +13,8 @@ import type { TrackingParams } from './lib/tracking'
 
 const {
   accounts,
-  isLoading,
   isSaving,
   lastSavedAt,
-  load,
   selectedAccount,
   selectedAccountId,
   state,
@@ -89,10 +87,6 @@ const handleEditRemove = async (id: string) => {
     // 用户取消
   }
 }
-
-onMounted(() => {
-  void load()
-})
 </script>
 
 <template>
@@ -141,7 +135,6 @@ onMounted(() => {
       :saved-entry-count="savedEntryCount"
       :has-saved-entry="hasSavedActualEntry"
       :actual-entries-updated-at="lastSavedAt"
-      :is-loading-actual-entries="isLoading"
       :is-saving-actual-entry="isSaving"
       :disable-outside-calculated-range="disableOutsideCalculatedRange"
       @save="saveActualEntry"

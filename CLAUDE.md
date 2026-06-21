@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 指引文件关系(避免双写漂移)
+
+- **`CLAUDE.md`(本文件)是唯一权威指引源。** 架构 / 数据流 / 约定 / 域规则的全部细节以此为准。
+- **`AGENTS.md` 是 minimax code 的入口索引**(精简版:命令 + 最易踩坑的几条 + PR 约定),内容不与本文件重复;规范变更**只改 `CLAUDE.md`**,再同步 `AGENTS.md` 的指针,不要两处各改。
+- `.harness/` 是 Claude Code 运行目录,不入库(见 `.gitignore`)。
+
 ## Project Overview
 
 chipRunner 是一个基于 Vue 3 + Element Plus 的**多票(股票)交易跟踪原型**(中文 UI),纯前端无后端。每只票有独立的模型参数(`TrackingParams`)与实盘记录,顶部标签页切换查看;状态持久化在浏览器 **localStorage**(只存关键数据:参数 + 实盘录入,计算结果全部实时派生)。计算内核 `src/lib/trackingCore.ts` 按固定规则逐日累加。

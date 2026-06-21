@@ -13,7 +13,7 @@ import {
   CALENDAR_BY_YEAR,
   CALENDAR_YEARS,
 } from '../data/sources'
-import type { Account, AppState } from '../lib/accountState'
+import { upsertAccount, type Account, type AppState } from '../lib/accountState'
 import { useActualEntryState } from './useActualEntryState'
 import { resolveScopeEndDate } from '../lib/trackingYearScope'
 
@@ -111,16 +111,12 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   const writeFormBackToAccount = () => {
     const target = account.value
     if (!target) return
-    onStateChange({
-      ...state.value,
-      accounts: {
-        ...state.value.accounts,
-        [target.id]: {
-          ...target,
-          params: { ...form },
-        },
-      },
-    })
+    onStateChange(
+      upsertAccount(state.value, {
+        ...target,
+        params: { ...form },
+      }),
+    )
   }
 
   const availableDateFrom = DEFAULT_PARAMS.startDate

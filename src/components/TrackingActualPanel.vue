@@ -10,7 +10,6 @@ const props = defineProps<{
   savedEntryCount: number
   hasSavedEntry: boolean
   actualEntriesUpdatedAt: string | null
-  isLoadingActualEntries: boolean
   isSavingActualEntry: boolean
   disableOutsideCalculatedRange: (date: Date) => boolean
 }>()

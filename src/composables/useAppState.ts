@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   createAccount,
@@ -43,7 +43,6 @@ const saveToStorage = (state: AppState) => {
 
 export function useAppState() {
   const state = ref<AppState>(loadFromStorage())
-  const isLoading = ref(false)
   const isSaving = ref(false)
   const lastSavedAt = ref<string | null>(state.value.updatedAt ?? null)
 
@@ -54,11 +53,6 @@ export function useAppState() {
   const selectedAccountId = computed<string>(() => state.value.selectedAccountId)
 
   const accounts = computed<Account[]>(() => Object.values(state.value.accounts))
-
-  const load = () => {
-    state.value = loadFromStorage()
-    lastSavedAt.value = state.value.updatedAt ?? null
-  }
 
   // 票 CRUD:走 state.value 赋值,现有 deep watcher 自动写回 localStorage
   const createTicket = (name: string, params: TrackingParams) => {
@@ -89,7 +83,9 @@ export function useAppState() {
     state.value = next
   }
 
-  // 深监听 → 400ms debounce 写回 localStorage。
+  // persist 时同步内存 state.updatedAt,使其与 localStorage 一致;
+  // ignoreWatcher 屏蔽"这次 updatedAt 变化"触发的 watch,避免死循环写回。
+  let ignoreWatcher = false
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   const scheduleSave = () => {
     if (saveTimer) {
@@ -105,8 +101,13 @@ export function useAppState() {
     isSaving.value = true
     const now = new Date().toISOString()
     saveToStorage({ ...state.value, updatedAt: now })
+    ignoreWatcher = true
+    state.value = { ...state.value, updatedAt: now }
     lastSavedAt.value = now
-    isSaving.value = false
+    nextTick(() => {
+      ignoreWatcher = false
+      isSaving.value = false
+    })
   }
 
   const updateState = (next: AppState) => {
@@ -116,6 +117,7 @@ export function useAppState() {
   watch(
     state,
     () => {
+      if (ignoreWatcher) return
       scheduleSave()
     },
     { deep: true },
@@ -126,10 +128,8 @@ export function useAppState() {
     accounts,
     selectedAccount,
     selectedAccountId,
-    isLoading,
     isSaving,
     lastSavedAt,
-    load,
     createTicket,
     editTicket,
     selectTicket,
