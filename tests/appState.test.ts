@@ -5,6 +5,7 @@ import {
   createSeedState,
   deleteAccount,
   getSelectedAccount,
+  migrateState,
   removeAccountEntry,
   renameAccount,
   selectAccount,
@@ -230,5 +231,47 @@ describe('setAccountEntry / removeAccountEntry', () => {
       '2099.01.01',
     )
     expect(next).toBe(state)
+  })
+})
+
+describe('migrateState', () => {
+  it('clamps early start dates to the system start date and drops earlier actual entries', () => {
+    const seed = createSeedState()
+    const id = seed.selectedAccountId
+    const input: AppState = {
+      ...seed,
+      accounts: {
+        [id]: {
+          ...seed.accounts[id]!,
+          params: { ...seed.accounts[id]!.params, startDate: '2026.06.22' },
+          actualEntries: {
+            '2026.06.22': {
+              date: '2026.06.22',
+              actualShares: 1,
+              actualCash: 1,
+              closePrice: 1,
+            },
+            '2026.06.25': {
+              date: '2026.06.25',
+              actualShares: 2,
+              actualCash: 2,
+              closePrice: 2,
+            },
+          },
+        },
+      },
+    }
+
+    const migrated = migrateState(input)
+    const account = migrated.accounts[id]!
+
+    expect(account.params.startDate).toBe(DEFAULT_PARAMS.startDate)
+    expect(account.actualEntries['2026.06.22']).toBeUndefined()
+    expect(account.actualEntries['2026.06.25']).toBeDefined()
+  })
+
+  it('returns the same state reference when nothing needs migrating', () => {
+    const state = createSeedState()
+    expect(migrateState(state)).toBe(state)
   })
 })

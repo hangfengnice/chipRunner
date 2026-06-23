@@ -5,6 +5,7 @@ import {
   createSeedState,
   deleteAccount,
   getSelectedAccount,
+  migrateState,
   renameAccount,
   selectAccount,
   upsertAccount,
@@ -24,7 +25,7 @@ const loadFromStorage = (): AppState => {
     if (raw) {
       const parsed = JSON.parse(raw) as AppState
       if (parsed && parsed.version === 1 && parsed.accounts) {
-        return parsed
+        return migrateState(parsed)
       }
     }
   } catch {

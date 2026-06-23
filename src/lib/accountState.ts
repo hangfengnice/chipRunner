@@ -1,5 +1,6 @@
 import {
   DEFAULT_PARAMS,
+  SYSTEM_START_DATE,
   type ActualPositionEntry,
   type TrackingParams,
 } from './tracking'
@@ -76,6 +77,42 @@ export const createSeedState = (
     accounts: { [account.id]: account },
     updatedAt: nowIso(),
   }
+}
+
+// 迁移旧 localStorage 状态到当前系统起始日:
+// - 每只票 startDate 早于 SYSTEM_START_DATE 的拉到 SYSTEM_START_DATE;
+// - 删除每只票早于 SYSTEM_START_DATE 的实盘记录。
+// 无任何变化时返回原 state(便于上层引用比较判空)。
+export const migrateState = (state: AppState): AppState => {
+  let changed = false
+  const nextAccounts = Object.fromEntries(
+    Object.entries(state.accounts).map(([id, account]) => {
+      const startDateChanged = account.params.startDate < SYSTEM_START_DATE
+      const droppedDates = Object.keys(account.actualEntries).filter(
+        (date) => date < SYSTEM_START_DATE,
+      )
+
+      if (!startDateChanged && droppedDates.length === 0) {
+        return [id, account]
+      }
+
+      changed = true
+      const nextParams = startDateChanged
+        ? { ...account.params, startDate: SYSTEM_START_DATE }
+        : account.params
+      let nextEntries = account.actualEntries
+      if (droppedDates.length > 0) {
+        nextEntries = { ...account.actualEntries }
+        for (const date of droppedDates) {
+          delete nextEntries[date]
+        }
+      }
+
+      return [id, { ...account, params: nextParams, actualEntries: nextEntries }]
+    }),
+  )
+
+  return changed ? { ...state, accounts: nextAccounts, updatedAt: nowIso() } : state
 }
 
 export const upsertAccount = (state: AppState, account: Account): AppState => ({

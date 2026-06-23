@@ -106,6 +106,11 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
     if (!target) return
     Object.assign(form, target.params)
     clampEndDate()
+    // 切票时把展示区间重置为该票的完整计算区间,
+    // 确保早于系统起始日的"初始基准"快照首行切过去即可见。
+    const { min, max } = calculatedDateBounds.value
+    displayRange.dateFrom = min
+    displayRange.dateTo = max
   }
 
   const writeFormBackToAccount = () => {

@@ -2,31 +2,83 @@ import { describe, expect, it } from 'vitest'
 import {
   buildComparisonRows,
   buildRows,
+  SYSTEM_START_DATE,
   type ActualPositionEntry,
   type TrackingParams,
   type TrackingRow,
 } from '../src/lib/tracking'
 
-const DATE_RANGE = ['2026.06.03', '2026.06.04', '2026.06.05']
+const DATE_RANGE = ['2026.06.24', '2026.06.25', '2026.06.26']
 
 describe('buildRows', () => {
   it('filters rows by endDate when source dates are provided', () => {
     const params: TrackingParams = {
-      startDate: '2026.06.03',
+      startDate: '2026.06.24',
       initialShares: 2600,
       initialCash: 1376.18,
       price: 40.2,
       spread: 0.5,
       lotCost: 4020,
       hiddenTradingDays: 0,
-      endDate: '2026.06.04',
+      endDate: '2026.06.25',
     }
 
     const rows = buildRows(params, DATE_RANGE)
 
     expect(rows).toHaveLength(2)
-    expect(rows[0].date).toBe('2026.06.03')
-    expect(rows[1].date).toBe('2026.06.04')
+    expect(rows[0].date).toBe('2026.06.24')
+    expect(rows[1].date).toBe('2026.06.25')
+  })
+
+  it('treats a start date before SYSTEM_START_DATE as an initial snapshot row, then computes from the system start date', () => {
+    const earlyRange = [
+      '2026.06.15',
+      '2026.06.16',
+      '2026.06.17',
+      '2026.06.18',
+      '2026.06.22',
+      '2026.06.23',
+      '2026.06.24',
+      '2026.06.25',
+    ]
+    const params: TrackingParams = {
+      startDate: '2026.06.15',
+      initialShares: 2600,
+      initialCash: 1376.18,
+      price: 40.2,
+      spread: 0.5,
+      lotCost: 4020,
+      hiddenTradingDays: 0,
+      endDate: '2026.06.25',
+    }
+
+    const rows = buildRows(params, earlyRange)
+
+    // 快照首行 + 系统起始日起两个计算日,中间日期(06.16-06.23)跳过。
+    expect(rows).toHaveLength(3)
+    expect(SYSTEM_START_DATE).toBe('2026.06.24')
+
+    // 首行 = 初始基准快照(基本信息,不做 T、不买入)。
+    expect(rows[0]).toMatchObject({
+      index: 0,
+      date: '2026.06.15',
+      targetShares: 2600,
+      tProfit: 0,
+      targetCash: 1376.18,
+      targetAssets: 105896.18,
+      lotsBought: 0,
+    })
+
+    // 第二行起为实际计算日,首个计算日为系统起始日。
+    expect(rows[1]).toMatchObject({
+      date: '2026.06.24',
+      targetShares: 2600,
+      tProfit: 1300,
+      targetCash: 2676.18,
+      targetAssets: 107196.18,
+      lotsBought: 0,
+    })
+    expect(rows[2].date).toBe('2026.06.25')
   })
 })
 
