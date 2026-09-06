@@ -3,7 +3,6 @@ import { reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   DEFAULT_PARAMS,
-  SYSTEM_START_DATE,
   syncLotCostFromPrice,
   type TrackingParams,
 } from '../lib/tracking'
@@ -16,6 +15,7 @@ import TrackingFieldsForm, {
 const props = defineProps<{
   modelValue: boolean
   account: Account | undefined
+  firstTradingDate: string
 }>()
 
 const emit = defineEmits<{
@@ -56,9 +56,9 @@ const handleSave = () => {
     ElMessage.warning('请输入票名')
     return
   }
-  if (draft.startDate < SYSTEM_START_DATE) {
+  if (draft.startDate < props.firstTradingDate) {
     ElMessage.info(
-      `起始日早于计算起始日 ${SYSTEM_START_DATE},将作为初始基准首行展示,自 ${SYSTEM_START_DATE} 起逐日计算`,
+      `起始日早于首交易日 ${props.firstTradingDate},将作为初始基准首行展示,自 ${props.firstTradingDate} 起逐日计算`,
     )
   } else if (!ALL_TRADING_DATES.includes(draft.startDate)) {
     ElMessage.warning('起始日不是交易日,将从最近的下一个交易日开始')

@@ -124,11 +124,11 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
     )
   }
 
-  const availableDateFrom = DEFAULT_PARAMS.startDate
+  const availableDateFrom = computed(() => state.value.firstTradingDate)
   const availableDateTo = ALL_TRADING_DATE_TO
-  const totalAvailableTradingDays = ALL_TRADING_DATES.filter(
-    (date) => date >= availableDateFrom,
-  ).length
+  const totalAvailableTradingDays = computed(() =>
+    ALL_TRADING_DATES.filter((date) => date >= availableDateFrom.value).length,
+  )
   const firstCalendarYear = CALENDAR_YEARS[0]?.year
   const lastCalendarYear = CALENDAR_YEARS[CALENDAR_YEARS.length - 1]?.year
   const defaultYearScope = String(firstCalendarYear ?? 'all')
@@ -136,7 +136,7 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   const clampEndDate = () => {
     form.endDate = clampDateWithin(
       form.endDate,
-      availableDateFrom,
+      availableDateFrom.value,
       availableDateTo,
     )
   }
@@ -147,8 +147,8 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   const selectedYearScope = ref(defaultYearScope)
   const displayRange = reactive<DisplayRangeDraft>({
     dateFrom: pickNearestToToday(
-      ALL_TRADING_DATES.filter((date) => date >= availableDateFrom),
-      availableDateFrom,
+      ALL_TRADING_DATES.filter((date) => date >= availableDateFrom.value),
+      availableDateFrom.value,
     ),
     dateTo: form.endDate,
   })
@@ -179,7 +179,7 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
       : `${firstCalendarYear}-${lastCalendarYear}`
 
   const rows = computed(() =>
-    buildRows({ ...form }, ALL_TRADING_DATES),
+    buildRows({ ...form }, ALL_TRADING_DATES, availableDateFrom.value),
   )
 
   const {
@@ -199,8 +199,8 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   const calculatedDateBounds = computed(() => {
     if (!rows.value.length) {
       return {
-        min: availableDateFrom,
-        max: availableDateFrom,
+        min: availableDateFrom.value,
+        max: availableDateFrom.value,
       }
     }
 
@@ -271,12 +271,19 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
     return buildComparisonRows(rows.value, entries)
   })
 
-  const rangedComparisonRows = computed(() =>
-    comparisonRows.value.filter(
+  const rangedComparisonRows = computed(() => {
+    const all = comparisonRows.value
+    const inRange = all.filter(
       (row) =>
         row.date >= displayRange.dateFrom && row.date <= displayRange.dateTo,
-    ),
-  )
+    )
+    // 初始基准行(index=0)作为固定首行,始终保留,不受展示区间影响。
+    const snapshot = all.find((row) => row.index === 0)
+    if (snapshot && !inRange.includes(snapshot)) {
+      return [snapshot, ...inRange]
+    }
+    return inRange
+  })
 
   const visibleRows = computed(() => {
     if (!showRecentOnly.value) {
@@ -287,7 +294,10 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
   })
 
   const summary = computed<TrackingSummary>(() => {
-    const sourceRows = rangedComparisonRows.value
+    // 统计只计入实际交易日,排除初始基准行(index=0)。
+    const sourceRows = rangedComparisonRows.value.filter(
+      (row) => row.index > 0,
+    )
     const lastRow = sourceRows[sourceRows.length - 1]
     const firstRow = sourceRows[0]
     const buyDays = sourceRows.filter((row) => row.lotsBought > 0).length
@@ -344,7 +354,7 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
     (nextEndDate) => {
       const clampedEndDate = clampDateWithin(
         nextEndDate,
-        availableDateFrom,
+        availableDateFrom.value,
         availableDateTo,
       )
 
@@ -392,7 +402,7 @@ export function useTrackingDashboard(options: UseTrackingDashboardOptions) {
 
   const disableOutsideAvailableRange = (date: Date) => {
     const time = date.getTime()
-    const minTime = toDateTime(availableDateFrom)
+    const minTime = toDateTime(availableDateFrom.value)
     const maxTime = toDateTime(availableDateTo)
 
     return time < minTime || time > maxTime

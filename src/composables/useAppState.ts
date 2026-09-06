@@ -8,6 +8,8 @@ import {
   migrateState,
   renameAccount,
   selectAccount,
+  setFirstTradingDate as setFirstTradingDateState,
+  setPaidInterest as setPaidInterestState,
   upsertAccount,
   type Account,
   type AppState,
@@ -54,6 +56,19 @@ export function useAppState() {
   const selectedAccountId = computed<string>(() => state.value.selectedAccountId)
 
   const accounts = computed<Account[]>(() => Object.values(state.value.accounts))
+
+  const firstTradingDate = computed<string>(() => state.value.firstTradingDate)
+
+  const setFirstTradingDate = (date: string) => {
+    state.value = setFirstTradingDateState(state.value, date)
+  }
+
+  // 全局已支付利息(页眉输入框):写回 state 后由 deep watcher 自动持久化
+  const paidInterest = computed<number>(() => state.value.paidInterest)
+
+  const setPaidInterest = (value: number) => {
+    state.value = setPaidInterestState(state.value, value)
+  }
 
   // 票 CRUD:走 state.value 赋值,现有 deep watcher 自动写回 localStorage
   const createTicket = (name: string, params: TrackingParams) => {
@@ -129,12 +144,16 @@ export function useAppState() {
     accounts,
     selectedAccount,
     selectedAccountId,
+    firstTradingDate,
+    paidInterest,
+    setPaidInterest,
     isSaving,
     lastSavedAt,
     createTicket,
     editTicket,
     selectTicket,
     removeTicket,
+    setFirstTradingDate,
     updateState,
   }
 }

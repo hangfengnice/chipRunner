@@ -4,6 +4,7 @@ import {
   type ActualPositionEntry,
   type TrackingParams,
 } from './tracking'
+import { ALL_TRADING_DATES } from '../data/sources'
 
 export interface Account {
   id: string
@@ -15,6 +16,9 @@ export interface Account {
 
 export interface AppState {
   version: 1
+  firstTradingDate: string
+  /** 全局已支付利息(页眉输入框,所有票共用,保留 2 位小数) */
+  paidInterest: number
   selectedAccountId: string
   accounts: Record<string, Account>
   updatedAt: string
@@ -73,46 +77,90 @@ export const createSeedState = (
 
   return {
     version: STATE_VERSION,
+    firstTradingDate: SYSTEM_START_DATE,
+    paidInterest: 0,
     selectedAccountId: account.id,
     accounts: { [account.id]: account },
     updatedAt: nowIso(),
   }
 }
 
-// 迁移旧 localStorage 状态到当前系统起始日:
-// - 每只票 startDate 早于 SYSTEM_START_DATE 的拉到 SYSTEM_START_DATE;
-// - 删除每只票早于 SYSTEM_START_DATE 的实盘记录。
+// 迁移旧 localStorage 状态:
+// - 补全全局首交易日 firstTradingDate(老存档无此字段或值不在日历内 → 默认日历首日 SYSTEM_START_DATE);
+// - 补全全局已支付利息 paidInterest(老存档无此字段或非有限数 → 默认 0);
+// - 清除早于日历首日(SYSTEM_START_DATE)的实盘记录:日历首日为第一个真实交易日,此前的数据不再保留。
 // 无任何变化时返回原 state(便于上层引用比较判空)。
 export const migrateState = (state: AppState): AppState => {
-  let changed = false
-  const nextAccounts = Object.fromEntries(
-    Object.entries(state.accounts).map(([id, account]) => {
-      const startDateChanged = account.params.startDate < SYSTEM_START_DATE
-      const droppedDates = Object.keys(account.actualEntries).filter(
-        (date) => date < SYSTEM_START_DATE,
-      )
+  const stored = (state as Partial<AppState>).firstTradingDate
+  const firstTradingDate =
+    typeof stored === 'string' && ALL_TRADING_DATES.includes(stored)
+      ? stored
+      : SYSTEM_START_DATE
 
-      if (!startDateChanged && droppedDates.length === 0) {
-        return [id, account]
+  const storedInterest = (state as Partial<AppState>).paidInterest
+  const paidInterest =
+    typeof storedInterest === 'number' && Number.isFinite(storedInterest)
+      ? storedInterest
+      : 0
+
+  let entriesChanged = false
+  const accounts: Record<string, Account> = {}
+  for (const [id, account] of Object.entries(state.accounts)) {
+    const keptEntries: Record<string, ActualPositionEntry> = {}
+    for (const [date, entry] of Object.entries(account.actualEntries)) {
+      if (date >= SYSTEM_START_DATE) {
+        keptEntries[date] = entry
+      } else {
+        entriesChanged = true
       }
+    }
+    accounts[id] = { ...account, actualEntries: keptEntries }
+  }
 
-      changed = true
-      const nextParams = startDateChanged
-        ? { ...account.params, startDate: SYSTEM_START_DATE }
-        : account.params
-      let nextEntries = account.actualEntries
-      if (droppedDates.length > 0) {
-        nextEntries = { ...account.actualEntries }
-        for (const date of droppedDates) {
-          delete nextEntries[date]
-        }
-      }
+  if (
+    !entriesChanged &&
+    stored === firstTradingDate &&
+    storedInterest === paidInterest
+  ) {
+    return state
+  }
 
-      return [id, { ...account, params: nextParams, actualEntries: nextEntries }]
-    }),
-  )
+  return {
+    ...state,
+    firstTradingDate,
+    paidInterest,
+    accounts,
+    updatedAt: nowIso(),
+  }
+}
 
-  return changed ? { ...state, accounts: nextAccounts, updatedAt: nowIso() } : state
+// 设置全局首交易日(UI 下拉框调用)。date 必须是日历内的一天,否则原样返回。
+export const setFirstTradingDate = (
+  state: AppState,
+  date: string,
+): AppState => {
+  if (!ALL_TRADING_DATES.includes(date) || state.firstTradingDate === date) {
+    return state
+  }
+
+  return { ...state, firstTradingDate: date, updatedAt: nowIso() }
+}
+
+// 设置全局已支付利息(页眉输入框调用)。保留 2 位小数;非有限数原样返回。
+export const setPaidInterest = (
+  state: AppState,
+  value: number,
+): AppState => {
+  if (!Number.isFinite(value)) {
+    return state
+  }
+
+  const paidInterest = Math.round(value * 100) / 100
+  if (state.paidInterest === paidInterest) {
+    return state
+  }
+
+  return { ...state, paidInterest, updatedAt: nowIso() }
 }
 
 export const upsertAccount = (state: AppState, account: Account): AppState => ({

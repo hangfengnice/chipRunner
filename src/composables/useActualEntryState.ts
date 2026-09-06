@@ -7,7 +7,6 @@ import {
   type AppState,
 } from '../lib/accountState'
 import {
-  DEFAULT_PARAMS,
   type ActualPositionEntry,
   type TrackingRow,
 } from '../lib/tracking'
@@ -43,7 +42,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
   const { account, state, onStateChange, rows, getDefaultPrice } = options
 
   const actualEntryForm = reactive<ActualEntryDraft>({
-    date: account.value?.params.startDate ?? DEFAULT_PARAMS.startDate,
+    date: state.value.firstTradingDate,
     actualShares: null,
     actualCash: null,
     closePrice: getDefaultPrice(),
@@ -89,8 +88,7 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       if (id === previousAccountId) return
       previousAccountId = id
       const entries = Object.keys(actualEntries.value)
-      const firstRow = rows.value[0]
-      const fallback = firstRow?.date ?? DEFAULT_PARAMS.startDate
+      const fallback = state.value.firstTradingDate
       actualEntryForm.date = pickEarliestDate(
         entries.length > 0 ? entries : [fallback],
         fallback,
@@ -98,6 +96,16 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       hydrateActualEntryForm(actualEntryForm.date)
     },
     { immediate: true },
+  )
+
+  // 首交易日后移时,若当前录入日期早于新首日,clamp 到新首日(避免录入被隐藏的日期)。
+  watch(
+    () => state.value.firstTradingDate,
+    (next) => {
+      if (actualEntryForm.date < next) {
+        actualEntryForm.date = next
+      }
+    },
   )
 
   // When the form date changes manually, hydrate the entry fields.
@@ -108,6 +116,13 @@ export function useActualEntryState(options: UseActualEntryStateOptions) {
       hydrateActualEntryForm(date)
     },
   )
+
+  // 固定股价变化时,若当前日期尚未保存实盘,收盘价实时跟随固定股价;
+  // 已保存的日期保留历史收盘价,不被覆盖。
+  watch(getDefaultPrice, (nextPrice) => {
+    if (hasSavedActualEntry.value) return
+    actualEntryForm.closePrice = nextPrice
+  })
 
   const saveActualEntry = () => {
     const target = account.value

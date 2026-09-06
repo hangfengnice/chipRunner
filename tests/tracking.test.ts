@@ -8,60 +8,60 @@ import {
   type TrackingRow,
 } from '../src/lib/tracking'
 
-const DATE_RANGE = ['2026.06.24', '2026.06.25', '2026.06.26']
+const DATE_RANGE = ['2026.09.07', '2026.09.08', '2026.09.09']
 
 describe('buildRows', () => {
   it('filters rows by endDate when source dates are provided', () => {
     const params: TrackingParams = {
-      startDate: '2026.06.24',
+      startDate: '2026.09.07',
       initialShares: 2600,
       initialCash: 1376.18,
       price: 40.2,
       spread: 0.5,
       lotCost: 4020,
       hiddenTradingDays: 0,
-      endDate: '2026.06.25',
+      endDate: '2026.09.08',
     }
 
     const rows = buildRows(params, DATE_RANGE)
 
     expect(rows).toHaveLength(2)
-    expect(rows[0].date).toBe('2026.06.24')
-    expect(rows[1].date).toBe('2026.06.25')
+    expect(rows[0].date).toBe('2026.09.07')
+    expect(rows[1].date).toBe('2026.09.08')
   })
 
   it('treats a start date before SYSTEM_START_DATE as an initial snapshot row, then computes from the system start date', () => {
     const earlyRange = [
-      '2026.06.15',
-      '2026.06.16',
-      '2026.06.17',
-      '2026.06.18',
-      '2026.06.22',
-      '2026.06.23',
-      '2026.06.24',
-      '2026.06.25',
+      '2026.07.01',
+      '2026.07.02',
+      '2026.07.03',
+      '2026.08.17',
+      '2026.08.18',
+      '2026.08.31',
+      '2026.09.07',
+      '2026.09.08',
     ]
     const params: TrackingParams = {
-      startDate: '2026.06.15',
+      startDate: '2026.07.03',
       initialShares: 2600,
       initialCash: 1376.18,
       price: 40.2,
       spread: 0.5,
       lotCost: 4020,
       hiddenTradingDays: 0,
-      endDate: '2026.06.25',
+      endDate: '2026.09.08',
     }
 
     const rows = buildRows(params, earlyRange)
 
-    // 快照首行 + 系统起始日起两个计算日,中间日期(06.16-06.23)跳过。
+    // 快照首行(基准日 07.03) + 系统起始日(09.07)起两个计算日。
     expect(rows).toHaveLength(3)
-    expect(SYSTEM_START_DATE).toBe('2026.06.24')
+    expect(SYSTEM_START_DATE).toBe('2026.09.07')
 
     // 首行 = 初始基准快照(基本信息,不做 T、不买入)。
     expect(rows[0]).toMatchObject({
       index: 0,
-      date: '2026.06.15',
+      date: '2026.07.03',
       targetShares: 2600,
       tProfit: 0,
       targetCash: 1376.18,
@@ -69,16 +69,43 @@ describe('buildRows', () => {
       lotsBought: 0,
     })
 
-    // 第二行起为实际计算日,首个计算日为系统起始日。
+    // 第二行起为实际计算日,首个计算日为系统起始日(9.07)。
     expect(rows[1]).toMatchObject({
-      date: '2026.06.24',
+      date: '2026.09.07',
       targetShares: 2600,
       tProfit: 1300,
       targetCash: 2676.18,
       targetAssets: 107196.18,
       lotsBought: 0,
     })
-    expect(rows[2].date).toBe('2026.06.25')
+    expect(rows[2].date).toBe('2026.09.08')
+  })
+
+  it('firstDate 参数决定计算起点:首日后移则实际计算日顺延(早于首日只留基准快照)', () => {
+    const params: TrackingParams = {
+      startDate: '2026.08.12',
+      initialShares: 2600,
+      initialCash: 1376.18,
+      price: 40.2,
+      spread: 0.5,
+      lotCost: 4020,
+      hiddenTradingDays: 0,
+      endDate: '2026.08.14',
+    }
+    const range = ['2026.08.12', '2026.08.13', '2026.08.14']
+
+    // 显式首日 = 08.12:startDate 不早于首日,直接从 08.12 起算,3 个计算日。
+    const baseline = buildRows(params, range, '2026.08.12')
+    expect(baseline).toHaveLength(3)
+    expect(baseline[0].date).toBe('2026.08.12')
+    expect(baseline.every((r) => r.index > 0)).toBe(true)
+
+    // 首日设到 08.13:startDate(08.12) 早于首日 → 08.12 退化为初始基准快照(index=0,不做 T),
+    // 实际计算日(index>0)从 08.13 起。
+    const shifted = buildRows(params, range, '2026.08.13')
+    expect(shifted[0]).toMatchObject({ index: 0, date: '2026.08.12', tProfit: 0 })
+    const computeRows = shifted.filter((r) => r.index > 0)
+    expect(computeRows.map((r) => r.date)).toEqual(['2026.08.13', '2026.08.14'])
   })
 })
 

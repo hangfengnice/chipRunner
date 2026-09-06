@@ -9,12 +9,15 @@ import TrackingTicketEditDialog from './components/TrackingTicketEditDialog.vue'
 import TrackingTicketTabs from './components/TrackingTicketTabs.vue'
 import { useAppState } from './composables/useAppState'
 import { useTrackingDashboard } from './composables/useTrackingDashboard'
+import { ALL_TRADING_DATES } from './data/sources'
 import type { TrackingParams } from './lib/tracking'
 
 const {
   accounts,
+  firstTradingDate,
   isSaving,
   lastSavedAt,
+  paidInterest,
   selectedAccount,
   selectedAccountId,
   state,
@@ -23,6 +26,8 @@ const {
   editTicket,
   selectTicket,
   removeTicket,
+  setFirstTradingDate,
+  setPaidInterest,
 } = useAppState()
 
 const {
@@ -57,6 +62,7 @@ const {
 
 const createDialogVisible = ref(false)
 const editDialogVisible = ref(false)
+const tradingDateOptions = ALL_TRADING_DATES
 
 const handleCreate = () => {
   createDialogVisible.value = true
@@ -99,6 +105,33 @@ const handleEditRemove = async (id: string) => {
           用 Vue3 + Element Plus
           把跟踪模型做成一个最小可用界面,支持参数实时重算、年份切换与展示区间筛选。
         </p>
+      </div>
+      <div class="page-header-actions">
+        <span class="first-day-label">首交易日</span>
+        <el-select
+          :model-value="firstTradingDate"
+          filterable
+          placeholder="选择首交易日"
+          class="first-day-select"
+          @change="(value: string) => setFirstTradingDate(value)"
+        >
+          <el-option
+            v-for="date in tradingDateOptions"
+            :key="date"
+            :label="date"
+            :value="date"
+          />
+        </el-select>
+        <span class="first-day-label">已支付利息</span>
+        <el-input-number
+          :model-value="paidInterest"
+          :min="0"
+          :precision="2"
+          :controls="false"
+          placeholder="0.00"
+          class="paid-interest-input"
+          @change="(value: number | undefined) => value != null && setPaidInterest(value)"
+        />
       </div>
     </header>
 
@@ -151,12 +184,14 @@ const handleEditRemove = async (id: string) => {
 
     <TrackingTicketCreateDialog
       v-model="createDialogVisible"
+      :first-trading-date="firstTradingDate"
       @create="handleCreateSubmit"
     />
 
     <TrackingTicketEditDialog
       v-model="editDialogVisible"
       :account="selectedAccount"
+      :first-trading-date="firstTradingDate"
       @save="handleEditSave"
       @remove="handleEditRemove"
     />
@@ -201,5 +236,26 @@ h1 {
   color: var(--el-text-color-regular);
   font-size: 14px;
   max-width: 720px;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.first-day-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.first-day-select {
+  width: 170px;
+}
+
+.paid-interest-input {
+  width: 120px;
 }
 </style>

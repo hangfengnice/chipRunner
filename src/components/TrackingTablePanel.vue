@@ -37,6 +37,9 @@ const rowClassName = ({
   row: TrackingComparisonRow
   rowIndex: number
 }) => {
+  // 初始基准行(index=0):不参与逐日计算,单独高亮。
+  if (row.index === 0) return 'initial-snapshot-row'
+
   if (row.lotsBought <= 0) return ''
 
   // 往前数连续买入日:偶数位(第2/4/6天)用深色,奇数位(含孤立买入)用默认浅色
@@ -80,8 +83,18 @@ const rowClassName = ({
       height="816"
       :row-class-name="rowClassName"
     >
-      <el-table-column prop="index" label="#" width="72" />
-      <el-table-column prop="date" label="日期" min-width="128" />
+      <el-table-column label="#" width="72">
+        <template #default="{ row }">
+          {{ row.index === 0 ? '—' : row.index }}
+        </template>
+      </el-table-column>
+      <el-table-column label="日期" min-width="128">
+        <template #default="{ row }">
+          <span :class="{ 'initial-snapshot-date': row.index === 0 }">
+            {{ row.index === 0 ? '初始基准' : row.date }}
+          </span>
+        </template>
+      </el-table-column>
       <el-table-column label="买入手数" width="108" align="center">
         <template #default="{ row }">
           <el-tag
@@ -188,3 +201,13 @@ const rowClassName = ({
     </el-table>
   </el-card>
 </template>
+
+<style scoped>
+:deep(.el-table__row.initial-snapshot-row) {
+  background: var(--el-fill-color-light);
+}
+
+.initial-snapshot-date {
+  font-weight: 700;
+}
+</style>

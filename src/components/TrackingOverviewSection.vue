@@ -179,7 +179,7 @@ const selectedYearScopeModel = computed({
         type="warning"
         :closable="false"
         show-icon
-        :title="`最新基础数据从 ${form.startDate} 起算，默认前置交易日为 ${form.hiddenTradingDays}；年份视图和展示区间只影响展示，不会重置累计过程。`"
+        :title="`初始基准日 ${form.startDate}（仅展示初始股数/现金，不参与计算）；逐日 T 计算从 ${availableDateFrom} 起，默认前置交易日 ${form.hiddenTradingDays}。年份视图和展示区间只影响展示，不会重置累计过程。`"
       />
     </el-card>
 

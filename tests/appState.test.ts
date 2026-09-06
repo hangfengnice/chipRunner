@@ -10,6 +10,8 @@ import {
   renameAccount,
   selectAccount,
   setAccountEntry,
+  setFirstTradingDate,
+  setPaidInterest,
   upsertAccount,
   type AppState,
 } from '../src/lib/accountState'
@@ -27,6 +29,12 @@ describe('createSeedState', () => {
     expect(account?.name).toBe('默认票')
     expect(account?.params).toEqual(DEFAULT_PARAMS)
     expect(account?.actualEntries).toEqual({})
+  })
+
+  it('初始化全局首交易日为日历首日(SYSTEM_START_DATE),已支付利息为 0', () => {
+    const state = createSeedState()
+    expect(state.firstTradingDate).toBe('2026.09.07')
+    expect(state.paidInterest).toBe(0)
   })
 
   it('migrates legacy entries into the default account', () => {
@@ -235,43 +243,114 @@ describe('setAccountEntry / removeAccountEntry', () => {
 })
 
 describe('migrateState', () => {
-  it('clamps early start dates to the system start date and drops earlier actual entries', () => {
+  it('清除早于日历首日(9.07)的实盘记录,并给老存档补全 firstTradingDate / paidInterest', () => {
     const seed = createSeedState()
     const id = seed.selectedAccountId
+    const originalStartDate = '2026.06.22'
     const input: AppState = {
       ...seed,
       accounts: {
         [id]: {
           ...seed.accounts[id]!,
-          params: { ...seed.accounts[id]!.params, startDate: '2026.06.22' },
+          params: { ...seed.accounts[id]!.params, startDate: originalStartDate },
           actualEntries: {
-            '2026.06.22': {
-              date: '2026.06.22',
+            '2026.07.30': {
+              date: '2026.07.30',
               actualShares: 1,
               actualCash: 1,
               closePrice: 1,
             },
-            '2026.06.25': {
-              date: '2026.06.25',
+            '2026.08.14': {
+              date: '2026.08.14',
               actualShares: 2,
               actualCash: 2,
               closePrice: 2,
+            },
+            '2026.08.24': {
+              date: '2026.08.24',
+              actualShares: 3,
+              actualCash: 3,
+              closePrice: 3,
+            },
+            '2026.08.31': {
+              date: '2026.08.31',
+              actualShares: 4,
+              actualCash: 4,
+              closePrice: 4,
+            },
+            '2026.09.07': {
+              date: '2026.09.07',
+              actualShares: 5,
+              actualCash: 5,
+              closePrice: 5,
             },
           },
         },
       },
     }
+    // 模拟老存档:删除 firstTradingDate / paidInterest 字段。
+    delete (input as Partial<AppState>).firstTradingDate
+    delete (input as Partial<AppState>).paidInterest
 
     const migrated = migrateState(input)
     const account = migrated.accounts[id]!
 
-    expect(account.params.startDate).toBe(DEFAULT_PARAMS.startDate)
-    expect(account.actualEntries['2026.06.22']).toBeUndefined()
-    expect(account.actualEntries['2026.06.25']).toBeDefined()
+    // startDate 早于首日仍合法(作初始基准日),不再拉齐。
+    expect(account.params.startDate).toBe(originalStartDate)
+    // 9.07 为第一个真实交易日:早于它的实盘(07.30 / 08.14 / 08.24 / 08.31)被清除,9.07 当天保留。
+    expect(account.actualEntries['2026.07.30']).toBeUndefined()
+    expect(account.actualEntries['2026.08.14']).toBeUndefined()
+    expect(account.actualEntries['2026.08.24']).toBeUndefined()
+    expect(account.actualEntries['2026.08.31']).toBeUndefined()
+    expect(account.actualEntries['2026.09.07']).toBeDefined()
+    // 老存档补全 firstTradingDate = 日历首日(SYSTEM_START_DATE),paidInterest = 0。
+    expect(migrated.firstTradingDate).toBe('2026.09.07')
+    expect(migrated.paidInterest).toBe(0)
   })
 
   it('returns the same state reference when nothing needs migrating', () => {
     const state = createSeedState()
     expect(migrateState(state)).toBe(state)
+  })
+})
+
+describe('setFirstTradingDate', () => {
+  it('更新全局首交易日(不可变,需日历内日期)', () => {
+    const state = createSeedState()
+    const next = setFirstTradingDate(state, '2026.09.08')
+    expect(next).not.toBe(state)
+    expect(next.firstTradingDate).toBe('2026.09.08')
+    expect(state.firstTradingDate).toBe('2026.09.07')
+  })
+
+  it('非日历内日期原样返回', () => {
+    const state = createSeedState()
+    expect(setFirstTradingDate(state, '2026.07.04')).toBe(state)
+  })
+
+  it('相同日期原样返回(无变化)', () => {
+    const state = createSeedState()
+    expect(setFirstTradingDate(state, state.firstTradingDate)).toBe(state)
+  })
+})
+
+describe('setPaidInterest', () => {
+  it('更新全局已支付利息并保留 2 位小数(不可变)', () => {
+    const state = createSeedState()
+    const next = setPaidInterest(state, 123.456)
+    expect(next).not.toBe(state)
+    expect(next.paidInterest).toBe(123.46)
+    expect(state.paidInterest).toBe(0)
+  })
+
+  it('四舍五入后相同值原样返回(无变化)', () => {
+    const state = createSeedState()
+    expect(setPaidInterest(state, 0.001)).toBe(state)
+  })
+
+  it('非有限数原样返回', () => {
+    const state = createSeedState()
+    expect(setPaidInterest(state, Number.NaN)).toBe(state)
+    expect(setPaidInterest(state, Number.POSITIVE_INFINITY)).toBe(state)
   })
 })

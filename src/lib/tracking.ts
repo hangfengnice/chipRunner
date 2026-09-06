@@ -53,8 +53,14 @@ export interface TrackingComparisonRow extends TrackingRow {
 
 export const syncLotCostFromPrice = (price: number) => roundMoney(price * 100)
 
+// 日历首日:交易日历的第一天,作为"生效首交易日"的默认值与下限。
+// 实际生效的首交易日 = state.firstTradingDate(界面下拉框可调);早于该日的票
+// 起始日只作为"初始基准"快照行展示,不参与逐日累加。
+export const SYSTEM_START_DATE = TRADING_DATES_2026[0] ?? '2026.09.07'
+
 export const DEFAULT_PARAMS: TrackingParams = {
-  startDate: '2026.06.24',
+  // 默认起始日 = 日历首日(无 state 时的兜底);运行时新建票用当前生效首交易日。
+  startDate: SYSTEM_START_DATE,
   initialShares: 1200,
   initialCash: 0,
   price: 23.06,
@@ -63,10 +69,6 @@ export const DEFAULT_PARAMS: TrackingParams = {
   hiddenTradingDays: 0,
   endDate: TRADING_DATES_2026[TRADING_DATES_2026.length - 1] ?? '2026.12.31',
 }
-
-// 系统起始日:计算引擎实际起算的第一天(= 默认起始日)。
-// 早于该日的票起始日只作为"初始基准"快照行展示,不参与逐日累加。
-export const SYSTEM_START_DATE = DEFAULT_PARAMS.startDate
 
 // 初始基准快照行:仅展示用户填的初始股数/现金/股价对应的基本信息,
 // tProfit 与 lotsBought 为 0(该日不做 T、不买入)。
@@ -88,10 +90,11 @@ const buildInitialSnapshotRow = (
 export function buildRows(
   params: TrackingParams,
   sourceDates: readonly string[] = ALL_TRADING_DATES,
+  firstDate: string = SYSTEM_START_DATE,
 ): TrackingRow[] {
-  const earlyStart = params.startDate < SYSTEM_START_DATE
-  // 早于系统起始日:实际计算从系统起始日起;否则从票自身起始日起。
-  const computeFrom = earlyStart ? SYSTEM_START_DATE : params.startDate
+  const earlyStart = params.startDate < firstDate
+  // 早于生效首日:实际计算从生效首日起;否则从票自身起始日起。
+  const computeFrom = earlyStart ? firstDate : params.startDate
   const dates = sourceDates.filter(
     (date) => date >= computeFrom && date <= params.endDate,
   )
